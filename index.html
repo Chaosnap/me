@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="day">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>週刊ユキ — VOL.01</title>
+    <meta name="description" content="週刊ユキ：一本关于我的漫画杂志。作品、经历、喜欢的东西，还有一个不会结束的夏天。" />
+    <meta name="theme-color" content="#f3f1ee" />
+    <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+    <script>
+      // 避免主题闪烁：在渲染前决定昼/夜
+      try {
+        const t = localStorage.getItem('yuki-theme');
+        const night = t ? t === 'night' : matchMedia('(prefers-color-scheme: dark)').matches;
+        document.documentElement.dataset.theme = night ? 'night' : 'day';
+      } catch (e) {}
+    </script>
+    <script type="module" crossorigin src="./assets/index-BDznSuHD.js"></script>
+    <link rel="stylesheet" crossorigin href="./assets/index-CN26v0gJ.css">
+  </head>
+  <body>
+    <!-- ===== 開幕 Loader ===== -->
+    <div id="loader" aria-hidden="true">
+      <div class="ld-bokeh"><i></i><i></i><i></i><i></i><i></i><i></i></div>
+      <p class="ld-text" lang="ja">この夏を、一冊に綴じる。</p>
+      <div class="ld-foot">
+        <span class="ld-label">PRINTING VOL.01</span>
+        <span class="ld-bar"><i></i></span>
+        <span class="ld-num">000</span>
+      </div>
+      <button class="ld-skip" type="button">SKIP ▸</button>
+      <div class="ld-flash"></div>
+    </div>
+
+    <!-- ===== 全局特效层 ===== -->
+    <div class="fx" aria-hidden="true">
+      <div class="leaks"><i class="lk1"></i><i class="lk2"></i><i class="lk3"></i></div>
+      <canvas id="fx-canvas"></canvas>
+      <div class="grain"></div>
+    </div>
+
+    <!-- 印刷トンボ・カラーバー -->
+    <div class="print-frame" aria-hidden="true">
+      <i class="crop tl"></i><i class="crop tr"></i><i class="crop bl"></i><i class="crop br"></i>
+      <i class="reg rt"></i><i class="reg rb"></i><i class="reg rl"></i><i class="reg rr"></i>
+      <div class="colorbar"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+    </div>
+
+    <!-- ===== HUD ===== -->
+    <header class="hud">
+      <div class="hud-l">
+        <span class="hud-dot"></span>
+        <span class="hud-clock" id="clock">00:00:00</span>
+        <span class="hud-date" id="date"></span>
+      </div>
+      <div class="hud-c">
+        <span class="hud-mag" id="hud-mag">週刊ユキ</span>
+        <span class="hud-sep">/</span>
+        <span class="hud-chapter" id="hud-chapter">表紙</span>
+      </div>
+      <div class="hud-r">
+        <button class="hud-btn bgm-btn" id="bgm-toggle" type="button" aria-pressed="false" aria-label="背景音乐" data-cursor="♪">
+          <span class="bgm-reel" aria-hidden="true"><i></i></span>
+          <span class="bgm-eq" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></span>
+          <span class="bgm-title"><span class="bgm-title-text"></span></span>
+          <span class="bgm-state">PLAY</span>
+        </button>
+        <button class="hud-btn" id="theme-toggle" type="button" data-cursor="切替">
+          <span class="tt-day">昼</span><span class="tt-sep">/</span><span class="tt-night">夜</span>
+        </button>
+        <button class="hud-btn menu-btn" id="menu-btn" type="button" aria-expanded="false">目次</button>
+      </div>
+    </header>
+
+    <!-- 胶卷导航 -->
+    <nav class="filmnav" id="filmnav" aria-label="章节导航"></nav>
+
+    <!-- ノンブル -->
+    <div class="nombre" aria-hidden="true">
+      <span class="nb-mag">週刊ユキ 2026 No.01</span>
+      <span class="nb-page">P.<b id="page-no">001</b></span>
+      <span class="nb-progress"><i id="progress"></i></span>
+    </div>
+
+    <!-- カーソル -->
+    <div id="cursor" aria-hidden="true">
+      <div class="c-ring"><span class="c-bubble"><i class="c-iris"></i><i class="c-pearl"></i><i class="c-spec"></i></span></div>
+      <svg class="c-orbit" viewBox="0 0 120 120"><defs><path id="c-orbit-path" d="M60 60 m-46 0 a46 46 0 1 1 92 0 a46 46 0 1 1 -92 0"/></defs><text><textPath href="#c-orbit-path" textLength="286" lengthAdjust="spacing"></textPath></text></svg>
+      <span class="c-label"></span>
+      <div class="c-dot"></div>
+    </div>
+
+    <main id="app"></main>
+
+    <!-- 作品详情 -->
+    <div class="modal" id="modal" hidden>
+      <div class="modal-backdrop" data-close></div>
+      <article class="modal-sheet" role="dialog" aria-modal="true" aria-labelledby="modal-title"></article>
+    </div>
+
+    <!-- 移动端目录 -->
+    <div class="mobile-toc" id="mobile-toc" hidden></div>
+
+  </body>
+</html>
