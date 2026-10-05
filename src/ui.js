@@ -190,8 +190,10 @@ export function initFilmNav() {
     const f = i + Math.min(1, Math.max(0, (anchor - tops[i]) / Math.max(1, next - tops[i])));
     const pitch = frames[0].offsetHeight;
     const target = innerHeight / 2 - (frames[0].offsetTop + f * pitch);
-    y += (target - y) * 0.12;
-    reel.style.transform = `translate3d(0,${y.toFixed(2)}px,0)`;
+    const ny = y + (target - y) * 0.12;
+    if (Math.abs(ny - y) < 0.05) return;
+    y = ny;
+    reel.style.transform = `translate3d(0,${y.toFixed(1)}px,0)`;
   });
   return { caption };
 }
@@ -308,25 +310,25 @@ export function initSoundUI({ bgm, layers, spawnFromBottom }) {
   });
   btn.addEventListener('click', () => bgm.toggle());
 
-  // 第一次交互时开始播放（浏览器的自动播放限制）
+  // 第一次交互：接上频谱分析；如果自动播放被浏览器拦截了，就在这里开始播放
   const evs = ['pointerdown', 'keydown', 'touchend'];
   const cleanup = () => evs.forEach((ev) => removeEventListener(ev, unlock, true));
-  function unlock(e) {
-    cleanup();
-    if (e.target.closest && e.target.closest('#bgm-toggle')) return;
-    if (bgm.wanted && !bgm.playing) bgm.play();
+  async function unlock(e) {
+    bgm.connect();
+    if (e.target.closest && e.target.closest('#bgm-toggle')) return cleanup();
+    if (bgm.playing || (await bgm.play())) cleanup();
   }
   evs.forEach((ev) => addEventListener(ev, unlock, true));
 
-  // HUD 的 EQ + 全局 --beat
+  // HUD 的 EQ + --beat（只写到胶卷取景框上，不写 :root）
   let beat = 0;
-  const root = document.documentElement;
+  const gate = $('.fn-gate');
   gsap.ticker.add(() => {
     if (!bgm.playing && beat < 0.001) return;
     const b = bgm.bands(5);
     eqs.forEach((el, i) => el.style.setProperty('--h', b ? b[i].toFixed(2) : '0'));
     beat += (bgm.level() - beat) * 0.3;
-    root.style.setProperty('--beat', beat.toFixed(3));
+    if (gate) gate.style.setProperty('--beat', beat.toFixed(2));
     layers.forEach((l) => l.setBeat(beat));
   });
 

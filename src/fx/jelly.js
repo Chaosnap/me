@@ -54,13 +54,16 @@ const PALETTE = {
   },
 };
 
-export function createJellyLayer(canvas, { fixed = true, max = 36, interactive = false } = {}) {
+/**
+ * lite：简化版（封面用）——触手更少、口腕用细线、不画阴影/模糊/辐管，30fps、1x 分辨率
+ */
+export function createJellyLayer(canvas, { fixed = true, max = 36, interactive = false, lite = false, fps = 60, dpr: dprCap = 2 } = {}) {
   const ctx = canvas.getContext('2d');
   let W = 0,
     H = 0,
     dpr = 1;
   const resize = () => {
-    dpr = Math.min(devicePixelRatio || 1, 2);
+    dpr = Math.min(devicePixelRatio || 1, dprCap);
     W = fixed ? innerWidth : canvas.clientWidth;
     H = fixed ? innerHeight : canvas.clientHeight;
     canvas.width = Math.max(1, W * dpr);
@@ -109,7 +112,7 @@ export function createJellyLayer(canvas, { fixed = true, max = 36, interactive =
 
   function spawn(x, y, o = {}) {
     const r = o.r ?? rand(22, 40);
-    const nt = Math.round(rand(30, 42));
+    const nt = lite ? Math.round(rand(9, 13)) : Math.round(rand(30, 42));
     const j = {
       x,
       y,
@@ -127,8 +130,8 @@ export function createJellyLayer(canvas, { fixed = true, max = 36, interactive =
       seed: rand(0, 100),
       depth: o.depth ?? 1,
       push: { x: 0, y: 0 },
-      tents: Array.from({ length: nt }, (_, i) => ({ u: i / (nt - 1), len: r * rand(0.7, 1.5), pts: chain(7, x, y) })),
-      arms: Array.from({ length: 4 }, (_, k) => ({ k, len: r * rand(1.1, 1.7), pts: chain(11, x, y) })),
+      tents: Array.from({ length: nt }, (_, i) => ({ u: i / (nt - 1), len: r * rand(0.7, 1.5), pts: chain(lite ? 5 : 7, x, y) })),
+      arms: Array.from({ length: lite ? 2 : 4 }, (_, k) => ({ k: lite ? k + 1 : k, len: r * rand(1.1, 1.7), pts: chain(lite ? 6 : 11, x, y) })),
     };
     jellies.push(j);
     while (jellies.length > max) jellies.shift();
@@ -240,7 +243,7 @@ export function createJellyLayer(canvas, { fixed = true, max = 36, interactive =
 
     ctx.save();
     ctx.globalAlpha = env * j.alpha;
-    if (s < 0.8) ctx.filter = `blur(${((0.8 - s) * 6).toFixed(1)}px)`;
+    if (!lite && s < 0.8) ctx.filter = `blur(${((0.8 - s) * 6).toFixed(1)}px)`;
     if (glow) ctx.globalCompositeOperation = 'lighter';
 
     // 触手 + 口腕（世界坐标）
@@ -251,7 +254,14 @@ export function createJellyLayer(canvas, { fixed = true, max = 36, interactive =
       smooth(tn.pts);
       ctx.stroke();
     }
-    for (const arm of j.arms) drawArm(arm, s, P, j);
+    if (lite) {
+      ctx.strokeStyle = P.arm;
+      ctx.lineWidth = j.r * s * 0.07;
+      for (const arm of j.arms) {
+        smooth(arm.pts);
+        ctx.stroke();
+      }
+    } else for (const arm of j.arms) drawArm(arm, s, P, j);
 
     // 伞（局部坐标）
     ctx.translate(j.x, j.y);
@@ -272,9 +282,11 @@ export function createJellyLayer(canvas, { fixed = true, max = 36, interactive =
     g.addColorStop(0.88, P.edge);
     g.addColorStop(1, P.rimFill);
     ctx.fillStyle = g;
-    ctx.shadowColor = P.shadow;
-    ctx.shadowBlur = glow ? 16 + beat * 22 : 14;
-    ctx.shadowOffsetY = glow ? 0 : 6;
+    if (!lite) {
+      ctx.shadowColor = P.shadow;
+      ctx.shadowBlur = glow ? 16 + beat * 22 : 14;
+      ctx.shadowOffsetY = glow ? 0 : 6;
+    }
     ctx.fill();
     ctx.shadowBlur = 0;
     ctx.shadowOffsetY = 0;
@@ -300,6 +312,7 @@ export function createJellyLayer(canvas, { fixed = true, max = 36, interactive =
 
     // 辐管
     const cy = -bh * 0.42;
+    if (!lite) {
     ctx.strokeStyle = P.canal;
     ctx.lineWidth = 0.55;
     ctx.beginPath();
@@ -311,6 +324,7 @@ export function createJellyLayer(canvas, { fixed = true, max = 36, interactive =
       ctx.quadraticCurveTo(ex * 0.55, cy + (ey - cy) * 0.35 - r * 0.04, ex, ey);
     }
     ctx.stroke();
+    }
 
     // 四叶生殖腺
     for (let k = 0; k < 4; k++) {
@@ -328,7 +342,7 @@ export function createJellyLayer(canvas, { fixed = true, max = 36, interactive =
 
     // 伞缘感觉器（8 个小点）
     ctx.fillStyle = P.eye;
-    for (let k = 0; k < 8; k++) {
+    for (let k = 0; k < (lite ? 0 : 8); k++) {
       const u = (k + 0.5) / 8;
       const ex = -rimX + rimX * 2 * u;
       ctx.beginPath();
@@ -346,7 +360,12 @@ export function createJellyLayer(canvas, { fixed = true, max = 36, interactive =
     ctx.restore();
   }
 
+  const minDt = 1000 / fps - 2;
   function loop(now) {
+    if (now - last < minDt) {
+      requestAnimationFrame(loop);
+      return;
+    }
     const dt = Math.min(0.05, (now - last) / 1000);
     last = now;
     t += dt;
@@ -389,11 +408,11 @@ export function createJellyLayer(canvas, { fixed = true, max = 36, interactive =
       const toWorld = (lx, ly) => [j.x + (lx * cos - ly * sin) * s, j.y + (lx * sin + ly * cos) * s];
       for (const tn of j.tents) {
         const [ax, ay] = toWorld(-rimX * 0.97 + rimX * 1.94 * tn.u, j.r * 0.05);
-        step(tn.pts, ax, ay, (tn.len * s) / 6, f, tn.u * 9 + j.seed);
+        step(tn.pts, ax, ay, (tn.len * s) / (tn.pts.length - 1), f, tn.u * 9 + j.seed);
       }
       for (const arm of j.arms) {
         const [ax, ay] = toWorld((arm.k - 1.5) * j.r * 0.07, -bh * 0.14);
-        step(arm.pts, ax, ay, (arm.len * s) / 10, f, arm.k * 2 + j.seed);
+        step(arm.pts, ax, ay, (arm.len * s) / (arm.pts.length - 1), f, arm.k * 2 + j.seed);
       }
       const env = Math.max(0, Math.min(1, j.life / 0.9) * Math.min(1, (j.maxLife - j.life) / 1.6));
       drawJelly(j, c, env);

@@ -23,17 +23,17 @@ float noise(vec2 p){
 float fbm(vec2 p){
   float v = 0.0; float a = 0.5;
   mat2 m = mat2(1.6, 1.2, -1.2, 1.6);
-  for (int i = 0; i < 6; i++) { v += a * noise(p); p = m * p; a *= 0.5; }
+  for (int i = 0; i < 4; i++) { v += a * noise(p); p = m * p; a *= 0.5; }
   return v;
 }
 
 float cloud(vec2 p, float y, float t){
   vec2 q = vec2(p.x * 1.5 + t, p.y * 2.6);
-  vec2 warp = vec2(fbm(q * 0.8 + vec2(0.0, t * 0.3)), fbm(q * 0.8 + vec2(5.2, -t * 0.2)));
-  float n = fbm(q * 1.15 + warp * 1.1);
+  float w = fbm(q * 0.8 + vec2(0.0, t * 0.3));
+  float n = fbm(q * 1.15 + vec2(w, w * 0.7) * 1.1);
   // 越接近地平线越厚：入道雲
   float h = smoothstep(0.92, 0.12, y);
-  float th = mix(0.67, 0.47, h);
+  float th = mix(0.63, 0.44, h);
   return smoothstep(th, th + 0.13, n);
 }
 
@@ -64,11 +64,8 @@ void main(){
   float disc = smoothstep(0.065, 0.058, d) * mix(1.0, 0.9, uNight);
   float glow = exp(-d * mix(3.2, 7.0, uNight)) * mix(0.75, 0.35, uNight);
 
-  // ---- 云 + 色差（R/G/B 分别采样）
-  vec2 ca = (uv - 0.5) * 0.012;
+  // ---- 云（性能考虑：只采样一次，再加一次朝向太阳的受光采样）
   float cG = cloud(p, uv.y, t);
-  float cR = cloud(p + vec2(ca.x * asp, ca.y), uv.y, t);
-  float cB = cloud(p - vec2(ca.x * asp, ca.y), uv.y, t);
   // 受光：朝太阳方向偏移采样
   vec2 toSun = normalize(sun - p) * 0.035;
   float cS = cloud(p + toSun, uv.y + toSun.y, t);
@@ -79,9 +76,7 @@ void main(){
   // 太阳附近的云边缘透光
   cc += sunCol * glow * 0.8 * (1.0 - uNight * 0.6);
 
-  col.r = mix(col.r, cc.r, cR * 0.96);
-  col.g = mix(col.g, cc.g, cG * 0.96);
-  col.b = mix(col.b, cc.b, cB * 0.96);
+  col = mix(col, cc, cG * 0.96);
 
   // ---- 光漏（左下暖色、右侧品红）
   col += vec3(1.0, 0.55, 0.35) * smoothstep(0.85, 0.0, length(uv - vec2(-0.05, -0.05))) * mix(0.22, 0.12, uNight);
@@ -119,7 +114,7 @@ export function initSky(canvas) {
   const gl = canvas.getContext('webgl', { antialias: false, alpha: false, powerPreference: 'high-performance' });
   if (!gl) {
     canvas.style.background = 'linear-gradient(to bottom, #8fb0d8, #eceaf0)';
-    return { ready: Promise.resolve(), setNight() {}, setMouse() {}, setScroll() {} };
+    return { ready: Promise.resolve(), hold() {}, setNight() {}, setMouse() {}, setScroll() {} };
   }
   const sh = (type, src) => {
     const s = gl.createShader(type);
@@ -142,15 +137,19 @@ export function initSky(canvas) {
   const U = {};
   ['uRes', 'uTime', 'uMouse', 'uNight', 'uScroll', 'uScale'].forEach((n) => (U[n] = gl.getUniformLocation(prog, n)));
 
-  let scale = 0.6;
+  let scale = 0.5;
+  let cur = scale;
+  const MAX_PX = 420000; // 渲染像素上限：大屏幕也不会更慢
+  let held = false;
   const state = { night: document.documentElement.dataset.theme === 'night' ? 1 : 0, nightTarget: 0, mx: 0, my: 0, tx: 0, ty: 0, scroll: 0 };
   state.nightTarget = state.night;
 
   const resize = () => {
     const w = canvas.clientWidth,
       h = canvas.clientHeight;
-    canvas.width = Math.max(2, Math.round(w * scale));
-    canvas.height = Math.max(2, Math.round(h * scale));
+    cur = Math.min(scale, Math.sqrt(MAX_PX / Math.max(1, w * h)));
+    canvas.width = Math.max(2, Math.round(w * cur));
+    canvas.height = Math.max(2, Math.round(h * cur));
     gl.viewport(0, 0, canvas.width, canvas.height);
   };
   resize();
@@ -169,13 +168,17 @@ export function initSky(canvas) {
   const frame = (now) => {
     requestAnimationFrame(frame);
     if (!visible || document.hidden) return;
-    // 自适应画质
+    // 开场 loader 盖住天空时：画完前 3 帧就暂停
+    if (held && frames >= 3) return;
+    // 云走得很慢，30fps 足够
     const dt = now - last;
+    if (frames >= 3 && dt < 31) return;
     last = now;
-    if (dt > 30) slow++;
+    // 自适应画质：持续掉帧就降分辨率
+    if (frames > 3 && dt > 55) slow++;
     else slow = Math.max(0, slow - 1);
-    if (slow > 40 && scale > 0.35) {
-      scale -= 0.1;
+    if (slow > 20 && scale > 0.3) {
+      scale -= 0.08;
       slow = 0;
       resize();
     }
@@ -187,7 +190,7 @@ export function initSky(canvas) {
     gl.uniform2f(U.uMouse, state.mx, state.my);
     gl.uniform1f(U.uNight, state.night);
     gl.uniform1f(U.uScroll, state.scroll);
-    gl.uniform1f(U.uScale, scale);
+    gl.uniform1f(U.uScale, cur);
     gl.drawArrays(gl.TRIANGLES, 0, 3);
     if (++frames === 3) markReady();
   };
@@ -195,6 +198,10 @@ export function initSky(canvas) {
 
   return {
     ready,
+    /** loader 期间暂停渲染 */
+    hold(v) {
+      held = v;
+    },
     setNight(v) {
       state.nightTarget = v ? 1 : 0;
     },

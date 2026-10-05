@@ -1,74 +1,92 @@
-/* 背景音乐：浏览器不允许无交互自动播放，所以在第一次点击/按键时开始（淡入）。
- * 音频接到 AnalyserNode 上，低频能量用来驱动水母、光晕等的脉动。 */
+/* 背景音乐：一进入页面就尝试播放（淡入）。
+ * 浏览器若拦截无交互的有声自动播放，则在第一次点击 / 按键时开始。
+ * 注意：自动播放阶段不接 Web Audio（AudioContext 在用户交互前是挂起的，接上去反而会没声音），
+ * 等第一次交互时再接上 AnalyserNode，用低频能量驱动水母和胶卷光晕的脉动。 */
 import { audio } from './sound.js';
-
-const KEY = 'yuki-bgm';
 
 export function createBGM({ src, title, artist, volume = 0.6 }) {
   const el = new Audio();
   el.src = src;
   el.loop = true;
   el.preload = 'auto';
+  el.volume = 0;
   let ctx, gain, analyser, data;
   let playing = false;
+  let target = volume;
   const subs = new Set();
   const emit = () => subs.forEach((fn) => fn(playing));
-  let wanted = true;
   let unavailable = false;
   const missing = new Set();
   el.addEventListener('error', () => {
     unavailable = true;
     missing.forEach((fn) => fn());
   });
-  try {
-    wanted = localStorage.getItem(KEY) !== 'off';
-  } catch (e) {}
 
+  /* 音量渐变：接入 Web Audio 前用 el.volume，之后用 gain */
+  let fadeRaf = 0;
+  function fadeTo(v, ms, done) {
+    cancelAnimationFrame(fadeRaf);
+    if (gain) {
+      gain.gain.cancelScheduledValues(ctx.currentTime);
+      gain.gain.setTargetAtTime(v, ctx.currentTime, ms / 3000);
+      if (done) setTimeout(done, ms);
+      return;
+    }
+    const from = el.volume;
+    const t0 = performance.now();
+    const tick = (now) => {
+      const k = Math.min(1, (now - t0) / ms);
+      el.volume = from + (v - from) * k;
+      if (k < 1) fadeRaf = requestAnimationFrame(tick);
+      else done && done();
+    };
+    fadeRaf = requestAnimationFrame(tick);
+  }
+
+  /** 在用户交互里调用：接上频谱分析 */
   function connect() {
-    if (analyser) return;
-    ctx = audio();
-    const node = ctx.createMediaElementSource(el);
-    gain = ctx.createGain();
-    gain.gain.value = 0;
-    analyser = ctx.createAnalyser();
-    analyser.fftSize = 512;
-    analyser.smoothingTimeConstant = 0.82;
-    data = new Uint8Array(analyser.frequencyBinCount);
-    node.connect(gain).connect(analyser).connect(ctx.destination);
+    if (analyser || unavailable) return;
+    try {
+      ctx = audio();
+      const node = ctx.createMediaElementSource(el);
+      gain = ctx.createGain();
+      gain.gain.value = el.volume;
+      el.volume = 1;
+      analyser = ctx.createAnalyser();
+      analyser.fftSize = 512;
+      analyser.smoothingTimeConstant = 0.82;
+      data = new Uint8Array(analyser.frequencyBinCount);
+      node.connect(gain).connect(analyser).connect(ctx.destination);
+      cancelAnimationFrame(fadeRaf);
+      if (playing) fadeTo(target, 1200);
+    } catch (e) {
+      analyser = null;
+    }
   }
 
   async function play() {
     if (unavailable) return false;
-    connect();
-    if (ctx.state === 'suspended') await ctx.resume();
+    if (ctx && ctx.state === 'suspended') {
+      try {
+        await ctx.resume();
+      } catch (e) {}
+    }
     try {
       await el.play();
     } catch (e) {
-      return false;
+      return false; // 被自动播放策略拦截
     }
     playing = true;
-    gain.gain.cancelScheduledValues(ctx.currentTime);
-    gain.gain.setTargetAtTime(volume, ctx.currentTime, 0.9);
-    save('on');
+    fadeTo(target, 1800);
     emit();
     return true;
   }
 
   function pause() {
-    if (!ctx) return;
     playing = false;
-    gain.gain.cancelScheduledValues(ctx.currentTime);
-    gain.gain.setTargetAtTime(0, ctx.currentTime, 0.18);
-    setTimeout(() => !playing && el.pause(), 700);
-    save('off');
+    fadeTo(0, 600, () => !playing && el.pause());
     emit();
   }
-
-  const save = (v) => {
-    try {
-      localStorage.setItem(KEY, v);
-    } catch (e) {}
-  };
 
   if ('mediaSession' in navigator) {
     navigator.mediaSession.metadata = new MediaMetadata({ title, artist, album: '週刊ユキ' });
@@ -80,14 +98,12 @@ export function createBGM({ src, title, artist, volume = 0.6 }) {
     get playing() {
       return playing;
     },
-    get wanted() {
-      return wanted;
-    },
     play,
     pause,
+    connect,
     toggle: () => (playing ? pause() : play()),
     on: (fn) => subs.add(fn),
-    /** 音乐文件不存在时（例如没有一起部署）回调 */
+    /** 音乐文件不存在时回调 */
     onMissing: (fn) => (unavailable ? fn() : missing.add(fn)),
     /** 低频能量 0~1 */
     level() {

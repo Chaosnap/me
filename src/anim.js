@@ -32,7 +32,7 @@ export function initScroll() {
 }
 
 /* ---------------- Loader → 表紙 ---------------- */
-export function playLoader(ready, onDone) {
+export function playLoader(ready, onDone, setup) {
   const loader = $('#loader');
   const text = $('.ld-text', loader);
   text.innerHTML = [...text.textContent].map((c) => `<span class="ch">${c}</span>`).join('');
@@ -51,11 +51,24 @@ export function playLoader(ready, onDone) {
         $('.ld-bar i', loader).style.transform = `scaleX(${counter.v / 100})`;
       },
     }, 0)
-    .add(() => ready.then(finish));
+    // loader 自己的动画放完、画面静止时再做一次性的重活（建 ScrollTrigger 等），避免卡顿
+    .add(() =>
+      ready.then(() => {
+        prepare();
+        requestAnimationFrame(finish);
+      }),
+    );
+  let prepared = false;
+  function prepare() {
+    if (prepared) return;
+    prepared = true;
+    setup && setup();
+  }
 
   function finish() {
     if (finished) return;
     finished = true;
+    prepare();
     tl.kill();
     const out = gsap.timeline({
       onComplete: () => {
@@ -149,11 +162,12 @@ export function initAnimations({ sky }) {
     gsap.fromTo($('.door-bgword span', door), { xPercent: 10 }, { xPercent: -45, ease: 'none', scrollTrigger: { trigger: door, start: 'top bottom', end: 'bottom top', scrub: true } });
     gsap.to($('.speedlines', door), { rotate: 8, ease: 'none', scrollTrigger: { trigger: door, start: 'top bottom', end: 'bottom top', scrub: true } });
     const track = $('.marquee-track', door);
-    const loop = gsap.to(track, { xPercent: -50, duration: 26, ease: 'none', repeat: -1 });
+    const loop = gsap.to(track, { xPercent: -50, duration: 26, ease: 'none', repeat: -1, paused: true });
     ScrollTrigger.create({
       trigger: door,
       start: 'top bottom',
       end: 'bottom top',
+      onToggle: (s) => (s.isActive ? loop.play() : loop.pause()),
       onUpdate: (s) => {
         const v = Math.min(6, Math.abs(scrollState.velocity) * 0.25);
         gsap.to(loop, { timeScale: (s.direction || 1) * (1 + v), duration: 0.3, overwrite: true });
@@ -338,13 +352,20 @@ export function initAnimations({ sky }) {
   });
 
   // ---- 速度驱动的「套色偏移」
-  const root = document.documentElement;
-  let mx = 2;
+  // 只写到用到 --mx 的几个元素上，并且只在数值变化时写：
+  // 写在 :root 上会让整页每帧重新计算样式、重绘巨大的刊名阴影
+  const misEls = $$('.masthead, .cover-count, .door-title, .next-title');
+  let mx = 2,
+    shown = '';
   gsap.ticker.add(() => {
     const target = 2 + Math.min(14, Math.abs(scrollState.velocity) * 0.6);
     mx += (target - mx) * 0.15;
-    root.style.setProperty('--mx', `${mx.toFixed(2)}px`);
+    const v = `${(Math.round(mx * 4) / 4).toFixed(2)}px`;
+    if (v === shown) return;
+    shown = v;
+    misEls.forEach((el) => el.style.setProperty('--mx', v));
   });
+  const mast = $('.masthead');
   // 偶尔的 glitch
   const glitch = () => {
     const letters = $$('.mast-word .mch');
@@ -352,7 +373,7 @@ export function initAnimations({ sky }) {
       gsap.timeline()
         .to(letters, { x: () => gsap.utils.random(-14, 14), skewX: () => gsap.utils.random(-20, 20), duration: 0.06, stagger: 0.02 })
         .to(letters, { x: 0, skewX: 0, duration: 0.12 });
-      gsap.fromTo(root, { '--my': '4px' }, { '--my': '0px', duration: 0.25 });
+      gsap.fromTo(mast, { '--my': '4px' }, { '--my': '0px', duration: 0.25 });
     }
     setTimeout(glitch, gsap.utils.random(2500, 6000));
   };

@@ -242,9 +242,9 @@ ul {
 }
 .grain {
   position: absolute;
-  inset: -100%;
-  width: 300%;
-  height: 300%;
+  inset: -10%;
+  width: 120%;
+  height: 120%;
   opacity: 0.09;
   animation: grain 0.9s steps(6) infinite;
   mix-blend-mode: multiply;
@@ -255,11 +255,11 @@ ul {
 }
 @keyframes grain {
   0% { transform: translate(0, 0); }
-  17% { transform: translate(-5%, -8%); }
-  33% { transform: translate(-12%, 4%); }
-  50% { transform: translate(7%, -14%); }
-  67% { transform: translate(-3%, 12%); }
-  83% { transform: translate(11%, 5%); }
+  17% { transform: translate(-3%, -5%); }
+  33% { transform: translate(-6%, 2%); }
+  50% { transform: translate(4%, -7%); }
+  67% { transform: translate(-2%, 6%); }
+  83% { transform: translate(6%, 3%); }
 }
 .leaks i {
   position: absolute;
