@@ -1,0 +1,83 @@
+/* ============ 翻页过场 ============ */
+.page-turn {
+  position: fixed;
+  inset: 0;
+  z-index: 95;
+  display: none;
+  pointer-events: none;
+}
+.pt-sheet {
+  position: absolute;
+  inset: 0;
+  background: var(--paper);
+  color: var(--ink);
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+}
+.pt-sheet .speedlines {
+  position: absolute;
+  inset: -5%;
+  width: 110%;
+  height: 110%;
+  color: var(--ink);
+}
+.pt-label {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 28px 48px;
+  background: radial-gradient(closest-side, var(--paper) 72%, transparent);
+}
+.pt-no {
+  font-family: var(--f-mono);
+  font-size: 12px;
+  letter-spacing: 0.3em;
+  color: var(--red);
+}
+.pt-title {
+  font-family: var(--f-gothic);
+  font-weight: 400;
+  font-size: clamp(36px, 6vw, 88px);
+  line-height: 1.1;
+  text-shadow: 4px 0 0 var(--mis-c), -4px 0 0 var(--mis-m);
+  white-space: nowrap;
+}
+.pt-en {
+  font-family: var(--f-display);
+  font-size: 18px;
+  letter-spacing: 0.3em;
+}
+.pt-shadow {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 100%;
+  width: 40vw;
+  background: linear-gradient(to right, rgba(0, 0, 0, 0.35), transparent);
+}
+
+/* ============ 杂项 ============ */
+.door-bgword span {
+  display: inline-block;
+}
+.mast-word {
+  transform-origin: left top;
+}
+.cover-lines a,
+.toc-row a,
+.work-card,
+.pad,
+.sticker {
+  -webkit-tap-highlight-color: transparent;
+}
+.works-track {
+  touch-action: pan-y;
+}
+@media (max-width: 900px) {
+  .works-track {
+    touch-action: auto;
+  }
+}

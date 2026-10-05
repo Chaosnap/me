@@ -1,0 +1,16 @@
+node_modules
+dist
+.venv
+.DS_Store
+.claude/
+
+# 参考素材，以及带有其他作者 / 出版社版权标记的图片、翻唱音乐：只在本地用，不上传
+MV/
+RefMaterial/
+*.wav
+*.mp4
+public/audio/
+public/images/works/
+public/images/thumbs/
+public/images/pads/
+public/images/icon.webp

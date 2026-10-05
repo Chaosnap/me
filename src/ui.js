@@ -1,0 +1,460 @@
+import gsap from 'gsap';
+import { ScrollTrigger } from 'gsap/ScrollTrigger';
+import { chapters, workDetail } from './render.js';
+import { site } from './content.js';
+import { speedLines } from './art.js';
+import { sound, pageTurn, chime, blip } from './fx/sound.js';
+import { lenis, reduceMotion } from './anim.js';
+
+const $ = (s, r = document) => r.querySelector(s);
+const $$ = (s, r = document) => [...r.querySelectorAll(s)];
+const fine = matchMedia('(hover: hover) and (pointer: fine)').matches;
+const rand = (a, b) => a + Math.random() * (b - a);
+
+/* ---------- 颗粒纹理 ---------- */
+export function initGrain() {
+  const c = document.createElement('canvas');
+  c.width = c.height = 220;
+  const x = c.getContext('2d');
+  const img = x.createImageData(220, 220);
+  for (let i = 0; i < img.data.length; i += 4) {
+    const v = Math.random() * 255;
+    img.data[i] = img.data[i + 1] = img.data[i + 2] = v;
+    img.data[i + 3] = 255;
+  }
+  x.putImageData(img, 0, 0);
+  $('.grain').style.backgroundImage = `url(${c.toDataURL()})`;
+}
+
+/* ---------- 漫画格子：clip-path + 描边 ---------- */
+export function initPanels() {
+  $$('.panel[data-clip]').forEach((panel) => {
+    const pts = panel.dataset.clip.split(',').map((p) => p.trim().split(/\s+/).map(Number));
+    $('.panel-inner', panel).style.setProperty('--clip', `polygon(${pts.map(([x, y]) => `${x}% ${y}%`).join(',')})`);
+    panel.insertAdjacentHTML(
+      'beforeend',
+      `<svg class="panel-border" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true"><polygon points="${pts.map((p) => p.join(',')).join(' ')}" pathLength="1" stroke-dasharray="1" stroke-dashoffset="0"/></svg>`,
+    );
+  });
+}
+
+/* ---------- 刊名自适应宽度 ---------- */
+export function fitMasthead() {
+  const mast = $('.masthead');
+  const word = $('.mast-word');
+  const weekly = $('.mast-weekly');
+  const fit = () => {
+    word.style.setProperty('--mast-size', '100px');
+    word.style.transform = '';
+    const avail = mast.clientWidth - weekly.offsetWidth - 20;
+    const w = word.scrollWidth;
+    const maxH = innerHeight * (innerWidth < 900 ? 0.2 : 0.3);
+    const size = Math.min((100 * avail) / w, maxH / 0.8);
+    word.style.setProperty('--mast-size', `${size}px`);
+    const stretch = Math.min(1.5, avail / word.scrollWidth);
+    if (stretch > 1.02) {
+      word.style.transform = `scaleX(${stretch})`;
+      word.style.transformOrigin = 'left top';
+    }
+  };
+  fit();
+  document.fonts.ready.then(fit);
+  addEventListener('resize', fit);
+  // 竖屏时让电线杆留在画面里
+  const pole = $('.pole-scene');
+  const ar = () => pole && pole.setAttribute('preserveAspectRatio', innerWidth / innerHeight < 1 ? 'xMaxYMax slice' : 'xMidYMax slice');
+  ar();
+  addEventListener('resize', ar);
+  return fit;
+}
+
+/* ---------- 时钟 ---------- */
+export function initClock() {
+  const c = $('#clock');
+  const d = $('#date');
+  const W = '日月火水木金土';
+  const tick = () => {
+    const n = new Date();
+    c.textContent = n.toTimeString().slice(0, 8);
+    d.textContent = `${n.getFullYear()}.${String(n.getMonth() + 1).padStart(2, '0')}.${String(n.getDate()).padStart(2, '0')}（${W[n.getDay()]}）`;
+  };
+  tick();
+  setInterval(tick, 1000);
+}
+
+/* ---------- 光标：肥皂泡（悬停时变成珍珠 + 外圈旋转文字） ---------- */
+const CURSOR_EN = { 見る: 'VIEW', 読む: 'READ', 開く: 'OPEN', 次へ: 'NEXT', 前へ: 'PREV', 閉じる: 'CLOSE', 鳴らす: 'PLAY', 投函: 'POST', 戻る: 'BACK', 切替: 'DAY / NIGHT', '♪': 'MUSIC', GO: 'LINK', '✉': 'MAIL' };
+export function initCursor({ jelly }) {
+  if (!fine) return;
+  document.documentElement.classList.add('has-cursor');
+  const cur = $('#cursor');
+  const ring = $('.c-ring', cur);
+  const dot = $('.c-dot', cur);
+  const label = $('.c-label', cur);
+  const orbit = $('.c-orbit', cur);
+  const orbitText = $('textPath', orbit);
+
+  let mx = -200,
+    my = -200,
+    x = mx,
+    y = my,
+    px = x,
+    py = y,
+    lastBubble = 0;
+  addEventListener('pointermove', (e) => {
+    mx = e.clientX;
+    my = e.clientY;
+    dot.style.transform = `translate3d(${mx}px,${my}px,0)`;
+  });
+  gsap.ticker.add((time) => {
+    x += (mx - x) * 0.18;
+    y += (my - y) * 0.18;
+    const vx = x - px,
+      vy = y - py;
+    px = x;
+    py = y;
+    const sp = Math.hypot(vx, vy);
+    const a = Math.atan2(vy, vx);
+    // 轻微的果冻形变
+    const s = Math.min(0.16, sp * 0.01);
+    ring.style.transform = `translate3d(${x}px,${y}px,0) rotate(${a}rad) scale(${1 + s},${1 - s * 0.6}) rotate(${-a}rad)`;
+    const tr = `translate3d(${x}px,${y}px,0)`;
+    label.style.transform = tr;
+    orbit.style.transform = tr;
+    if (sp > 9 && time - lastBubble > 0.12) {
+      jelly.bubble(x + rand(-5, 5), y + rand(6, 12), { r: rand(1.2, 2.4) });
+      lastBubble = time;
+    }
+  });
+
+  const sel = 'a, button, [data-cursor], input, textarea, label';
+  document.addEventListener('pointerover', (e) => {
+    const t = e.target.closest(sel);
+    if (!t) return;
+    if (t.matches('input, textarea')) {
+      cur.style.opacity = '0.25';
+      return;
+    }
+    const txt = t.dataset.cursor || '';
+    cur.classList.add('is-hover');
+    label.textContent = txt;
+    const en = CURSOR_EN[txt] || (txt ? txt.toUpperCase() : 'CLICK');
+    orbitText.textContent = `${txt ? txt + ' ・ ' : ''}${en} ・ `.repeat(4).slice(0, 40);
+  });
+  document.addEventListener('pointerout', (e) => {
+    const t = e.target.closest(sel);
+    if (!t || (e.relatedTarget && t.contains(e.relatedTarget))) return;
+    cur.classList.remove('is-hover');
+    cur.style.opacity = '';
+  });
+  addEventListener('pointerdown', () => cur.classList.add('is-down'));
+  addEventListener('pointerup', () => cur.classList.remove('is-down'));
+  document.addEventListener('mouseleave', () => (cur.style.opacity = '0'));
+  document.addEventListener('mouseenter', () => (cur.style.opacity = ''));
+}
+
+/* ---------- 点击：游出水母 ---------- */
+export function initClickJelly({ jelly, audioOn }) {
+  document.addEventListener('click', (e) => {
+    if (e.target.closest('.modal, .mobile-toc, #loader')) return;
+    if (e.target.closest('a, button, input, textarea, label, select, .postcard')) {
+      jelly.ripple(e.clientX, e.clientY);
+      return;
+    }
+    jelly.burst(e.clientX, e.clientY);
+    if (audioOn()) for (let i = 0; i < 3; i++) setTimeout(() => blip(0.07), i * rand(60, 140));
+  });
+}
+
+/* ---------- 右侧胶卷：随滚动前进 ---------- */
+export function initFilmNav() {
+  const nav = $('#filmnav');
+  const reel = $('.fn-reel', nav);
+  const frames = $$('.fn-frame:not(.fn-leader)', reel);
+  const caption = document.createElement('div');
+  caption.className = 'fn-caption';
+  caption.setAttribute('aria-hidden', 'true');
+  document.body.appendChild(caption);
+  const secs = chapters.map((c) => document.getElementById(c.id));
+  let tops = [];
+  const measure = () => (tops = secs.map((s) => s.getBoundingClientRect().top + scrollY));
+  measure();
+  ScrollTrigger.addEventListener('refresh', measure);
+  let y = innerHeight / 2;
+  gsap.ticker.add(() => {
+    if (!frames.length || innerWidth <= 900) return;
+    const anchor = scrollY + innerHeight * 0.45;
+    let i = 0;
+    while (i < tops.length - 1 && anchor >= tops[i + 1]) i++;
+    const next = tops[i + 1] ?? document.documentElement.scrollHeight;
+    const f = i + Math.min(1, Math.max(0, (anchor - tops[i]) / Math.max(1, next - tops[i])));
+    const pitch = frames[0].offsetHeight;
+    const target = innerHeight / 2 - (frames[0].offsetTop + f * pitch);
+    y += (target - y) * 0.12;
+    reel.style.transform = `translate3d(0,${y.toFixed(2)}px,0)`;
+  });
+  return { caption };
+}
+
+/* ---------- 翻页过场 + 导航 ---------- */
+export function initNav({ audioOn }) {
+  const turn = document.createElement('div');
+  turn.className = 'page-turn';
+  turn.setAttribute('aria-hidden', 'true');
+  turn.innerHTML = `<div class="pt-sheet">${speedLines({ seed: 99, count: 160, inner: 0.55 })}<div class="pt-label"><span class="pt-no"></span><b class="pt-title" lang="ja"></b><span class="pt-en"></span></div></div><div class="pt-shadow"></div>`;
+  document.body.appendChild(turn);
+  let busy = false;
+
+  const go = (id) => {
+    const target = document.getElementById(id);
+    if (!target) return;
+    closeToc();
+    const c = chapters.find((x) => x.id === id);
+    if (reduceMotion || !lenis) {
+      target.scrollIntoView();
+      return;
+    }
+    if (busy) return;
+    busy = true;
+    if (audioOn()) pageTurn();
+    $('.pt-no', turn).textContent = `P.${String(c.page).padStart(3, '0')}`;
+    $('.pt-title', turn).textContent = c.no ? `第${c.no}話 ${c.ja}` : c.ja;
+    $('.pt-en', turn).textContent = c.en;
+    const tl = gsap.timeline({ onComplete: () => (busy = false) });
+    tl.set(turn, { display: 'block' })
+      .fromTo('.pt-sheet', { clipPath: 'polygon(100% 0%, 100% 0%, 100% 100%, 100% 100%)' }, { clipPath: 'polygon(0% 0%, 100% 0%, 100% 100%, -20% 100%)', duration: 0.55, ease: 'power3.in' })
+      .fromTo('.pt-shadow', { xPercent: 0, opacity: 0 }, { xPercent: -100, opacity: 1, duration: 0.55, ease: 'power3.in' }, 0)
+      .from('.pt-label > *', { y: 30, opacity: 0, stagger: 0.06, duration: 0.4, ease: 'back.out(2)' }, 0.35)
+      .add(() => {
+        lenis.scrollTo(target, { immediate: true, force: true });
+        ScrollTrigger.update();
+      })
+      .to('.pt-sheet', { clipPath: 'polygon(0% 0%, 0% 0%, -20% 100%, -20% 100%)', duration: 0.6, ease: 'power3.inOut' }, '+=0.35')
+      .to('.pt-shadow', { opacity: 0, duration: 0.3 }, '<')
+      .set(turn, { display: 'none' });
+  };
+
+  document.addEventListener('click', (e) => {
+    const a = e.target.closest('[data-goto]');
+    if (!a) return;
+    e.preventDefault();
+    go(a.dataset.goto);
+  });
+
+  // 移动端目录
+  const toc = $('#mobile-toc');
+  const btn = $('#menu-btn');
+  function closeToc() {
+    toc.hidden = true;
+    btn.setAttribute('aria-expanded', 'false');
+    lenis && lenis.start();
+  }
+  btn.addEventListener('click', () => {
+    const open = toc.hidden;
+    toc.hidden = !open;
+    btn.setAttribute('aria-expanded', String(open));
+    if (open) {
+      lenis && lenis.stop();
+      gsap.from('#mobile-toc a', { x: -30, opacity: 0, stagger: 0.04, duration: 0.4 });
+    } else lenis && lenis.start();
+  });
+}
+
+/* ---------- 昼 / 夜 ---------- */
+export function initTheme({ sky }) {
+  const btn = $('#theme-toggle');
+  const meta = document.querySelector('meta[name="theme-color"]');
+  const apply = (night) => {
+    document.documentElement.dataset.theme = night ? 'night' : 'day';
+    meta.setAttribute('content', night ? '#0f1822' : '#f3f1ee');
+    sky && sky.setNight(night);
+    try {
+      localStorage.setItem('yuki-theme', night ? 'night' : 'day');
+    } catch (e) {}
+    if (sound.isOn('cicada')) sound.restart('cicada');
+  };
+  sky && sky.setNight(document.documentElement.dataset.theme === 'night');
+  btn.addEventListener('click', () => {
+    const night = document.documentElement.dataset.theme !== 'night';
+    if (!document.startViewTransition || reduceMotion) return apply(night);
+    const r = btn.getBoundingClientRect();
+    const x = r.left + r.width / 2,
+      y = r.top + r.height / 2;
+    const end = Math.hypot(Math.max(x, innerWidth - x), Math.max(y, innerHeight - y));
+    const vt = document.startViewTransition(() => apply(night));
+    vt.ready.then(() => {
+      document.documentElement.animate(
+        { clipPath: [`circle(0px at ${x}px ${y}px)`, `circle(${end}px at ${x}px ${y}px)`] },
+        { duration: 900, easing: 'cubic-bezier(.7,0,.25,1)', pseudoElement: '::view-transition-new(root)' },
+      );
+    });
+  });
+}
+
+/* ---------- 背景音乐 + 效果音 ---------- */
+export function initSoundUI({ bgm, layers, spawnFromBottom }) {
+  const btn = $('#bgm-toggle');
+  const state = $('.bgm-state', btn);
+  const eqs = $$('.bgm-eq i', btn);
+  const pads = $$('.pad');
+  const sync = (p) => {
+    btn.setAttribute('aria-pressed', String(p));
+    state.textContent = p ? 'PLAYING' : 'PAUSED';
+  };
+  bgm.on(sync);
+  bgm.onMissing(() => {
+    btn.hidden = true;
+    document.querySelectorAll('.ok-bgm').forEach((el) => el.remove());
+  });
+  btn.addEventListener('click', () => bgm.toggle());
+
+  // 第一次交互时开始播放（浏览器的自动播放限制）
+  const evs = ['pointerdown', 'keydown', 'touchend'];
+  const cleanup = () => evs.forEach((ev) => removeEventListener(ev, unlock, true));
+  function unlock(e) {
+    cleanup();
+    if (e.target.closest && e.target.closest('#bgm-toggle')) return;
+    if (bgm.wanted && !bgm.playing) bgm.play();
+  }
+  evs.forEach((ev) => addEventListener(ev, unlock, true));
+
+  // HUD 的 EQ + 全局 --beat
+  let beat = 0;
+  const root = document.documentElement;
+  gsap.ticker.add(() => {
+    if (!bgm.playing && beat < 0.001) return;
+    const b = bgm.bands(5);
+    eqs.forEach((el, i) => el.style.setProperty('--h', b ? b[i].toFixed(2) : '0'));
+    beat += (bgm.level() - beat) * 0.3;
+    root.style.setProperty('--beat', beat.toFixed(3));
+    layers.forEach((l) => l.setBeat(beat));
+  });
+
+  const syncPads = () => pads.forEach((p) => p.setAttribute('aria-pressed', String(sound.isOn(p.dataset.sound))));
+  pads.forEach((p) =>
+    p.addEventListener('click', () => {
+      const n = p.dataset.sound;
+      if (sound.isOn(n)) sound.stop(n);
+      else {
+        sound.start(n, { launch: spawnFromBottom });
+        if (n === 'furin') chime(0.22);
+      }
+      syncPads();
+    }),
+  );
+}
+
+/* ---------- 作品详情 ---------- */
+export function initModal() {
+  const modal = $('#modal');
+  const sheet = $('.modal-sheet', modal);
+  let last = null;
+  let idx = 0;
+  const fill = (i, dir = 0) => {
+    idx = (i + site.works.length) % site.works.length;
+    sheet.innerHTML = workDetail(idx);
+    gsap.from($('.md-art > :last-child', sheet), { x: dir * 60, opacity: 0, scale: 1.04, duration: 0.6, ease: 'expo.out', clearProps: 'transform,translate,rotate,scale,opacity' });
+    gsap.from($$('.md-body > *', sheet), { x: 30, opacity: 0, stagger: 0.05, duration: 0.5, delay: 0.1, ease: 'power3.out', clearProps: 'transform,translate,rotate,scale,opacity' });
+  };
+  const open = (i) => {
+    last = document.activeElement;
+    modal.hidden = false;
+    fill(i);
+    lenis && lenis.stop();
+    gsap.fromTo('.modal-backdrop', { opacity: 0 }, { opacity: 1, duration: 0.4 });
+    gsap.fromTo(sheet, { y: 80, rotate: 3, opacity: 0, scale: 0.95 }, { y: 0, rotate: 0, opacity: 1, scale: 1, duration: 0.7, ease: 'expo.out' });
+    $('.modal-close', sheet).focus();
+  };
+  const close = () => {
+    gsap.to(sheet, { y: 60, opacity: 0, rotate: -3, duration: 0.35, ease: 'power3.in' });
+    gsap.to('.modal-backdrop', {
+      opacity: 0,
+      duration: 0.35,
+      onComplete: () => {
+        modal.hidden = true;
+        lenis && lenis.start();
+        last && last.focus();
+      },
+    });
+  };
+  document.addEventListener('click', (e) => {
+    const card = e.target.closest('[data-work]');
+    if (card) open(Number(card.dataset.work));
+    const step = e.target.closest('[data-work-step]');
+    if (step) fill(idx + Number(step.dataset.workStep), Number(step.dataset.workStep));
+    if (e.target.closest('[data-close]')) close();
+  });
+  addEventListener('keydown', (e) => {
+    if (modal.hidden) return;
+    if (e.key === 'Escape') close();
+    if (e.key === 'ArrowRight') fill(idx + 1, 1);
+    if (e.key === 'ArrowLeft') fill(idx - 1, -1);
+  });
+}
+
+/* ---------- 读者明信片 ---------- */
+export function initPostcard(email) {
+  const form = $('#postcard');
+  const done = $('.pc-done', form);
+  form.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const fd = new FormData(form);
+    const name = (fd.get('name') || '').toString().trim();
+    const msg = (fd.get('msg') || '').toString().trim();
+    if (!name || !msg) {
+      done.textContent = '※ お名前とメッセージを書いてね（名字和留言是必填的）';
+      gsap.fromTo(form, { x: -8 }, { x: 0, duration: 0.5, ease: 'elastic.out(1, 0.3)' });
+      return;
+    }
+    const body = `${msg}\n\n— ${name}${fd.get('email') ? ` <${fd.get('email')}>` : ''}\n（今号のお気に入り：${fd.get('fav')}）`;
+    form.classList.remove('is-sent');
+    void form.offsetWidth;
+    form.classList.add('is-sent');
+    done.textContent = '投函しました！メールアプリが開きます ✉';
+    setTimeout(() => {
+      location.href = `mailto:${email}?subject=${encodeURIComponent(`【読者はがき】${name} より`)}&body=${encodeURIComponent(body)}`;
+    }, 650);
+  });
+}
+
+/* ---------- 次号予告：漂浮的水母 ---------- */
+export function initNextJellies({ jelly }) {
+  const sec = $('#next');
+  ScrollTrigger.create({
+    trigger: sec,
+    start: 'top 70%',
+    end: 'bottom 30%',
+    onToggle: (s) => {
+      if (reduceMotion) return;
+      jelly.ambient(s.isActive, {
+        count: 8,
+        area: () => {
+          const r = sec.getBoundingClientRect();
+          return { x: 0, y: Math.max(0, r.top), w: innerWidth, h: Math.min(innerHeight, r.bottom) - Math.max(0, r.top) };
+        },
+        make: { glow: true, r: () => rand(16, 46), speed: () => rand(0.25, 0.5), life: () => rand(9, 13) },
+      });
+    },
+  });
+}
+
+/* ---------- 封面视差 ---------- */
+export function initParallax({ sky }) {
+  if (!fine) return;
+  const cover = $('#cover');
+  const items = $$('[data-parallax]').map((el) => ({ el, d: Number(el.dataset.parallax), x: gsap.quickTo(el, 'x', { duration: 1, ease: 'power3' }), y: gsap.quickTo(el, 'y', { duration: 1, ease: 'power3' }) }));
+  const v = { fx: 0, fy: 0 };
+  const fx = gsap.quickTo(v, 'fx', { duration: 1.2, ease: 'power3', onUpdate: () => cover.style.setProperty('--fx', v.fx.toFixed(3)) });
+  const fy = gsap.quickTo(v, 'fy', { duration: 1.2, ease: 'power3', onUpdate: () => cover.style.setProperty('--fy', v.fy.toFixed(3)) });
+  addEventListener('pointermove', (e) => {
+    const nx = (e.clientX / innerWidth) * 2 - 1;
+    const ny = (e.clientY / innerHeight) * 2 - 1;
+    items.forEach((it) => {
+      it.x(-nx * 12 * it.d);
+      it.y(-ny * 8 * it.d);
+    });
+    fx(nx);
+    fy(-ny);
+    sky && sky.setMouse(nx, -ny);
+  });
+}
