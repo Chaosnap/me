@@ -263,18 +263,42 @@ ul {
   90% { transform: translate(-1%, -6%); }
 }
 .leaks i {
+  --o: 0.55;
   position: absolute;
   border-radius: 50%;
   mix-blend-mode: soft-light;
-  opacity: 0.55;
-  will-change: transform;
+  opacity: var(--o);
+  will-change: transform, opacity;
 }
-:root[data-theme='night'] .leaks i { mix-blend-mode: screen; opacity: 0.22; }
-.lk1 { width: 70vmax; height: 70vmax; left: -30vmax; top: -25vmax; background: radial-gradient(circle, var(--sunset), transparent 62%); animation: leak1 18s ease-in-out infinite alternate; }
-.lk2 { width: 60vmax; height: 60vmax; right: -28vmax; bottom: -30vmax; background: radial-gradient(circle, var(--magenta), transparent 62%); animation: leak2 22s ease-in-out infinite alternate; opacity: 0.32; }
-.lk3 { width: 40vmax; height: 40vmax; right: -10vmax; top: 10vh; background: radial-gradient(circle, var(--cyan), transparent 62%); animation: leak1 26s ease-in-out infinite alternate-reverse; opacity: 0.25; }
-@keyframes leak1 { to { transform: translate3d(12vw, 10vh, 0) scale(1.2); } }
-@keyframes leak2 { to { transform: translate3d(-14vw, -12vh, 0) scale(0.85); } }
+:root[data-theme='night'] .leaks i { mix-blend-mode: screen; --o: 0.22; }
+/* 三团漏光各走各的路线（多点游走 + 缩放），再叠一层明暗呼吸；周期互不整除，不会一眼看出循环 */
+.lk1 { width: 70vmax; height: 70vmax; left: -30vmax; top: -25vmax; background: radial-gradient(circle, var(--sunset), transparent 62%); animation: leakA 17s ease-in-out infinite, leakPulse 7.3s ease-in-out infinite; }
+.lk2 { --o: 0.42; width: 60vmax; height: 60vmax; right: -28vmax; bottom: -30vmax; background: radial-gradient(circle, var(--magenta), transparent 62%); animation: leakB 13s ease-in-out infinite, leakPulse 5.9s ease-in-out -2s infinite; }
+.lk3 { --o: 0.36; width: 46vmax; height: 46vmax; right: -12vmax; top: 6vh; background: radial-gradient(circle, var(--cyan), transparent 62%); animation: leakC 11s ease-in-out infinite, leakPulse 6.7s ease-in-out -4s infinite; }
+:root[data-theme='night'] .lk2 { --o: 0.2; }
+:root[data-theme='night'] .lk3 { --o: 0.2; }
+@keyframes leakA {
+  0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
+  30% { transform: translate3d(14vw, 9vh, 0) scale(1.18); }
+  60% { transform: translate3d(5vw, 24vh, 0) scale(0.92); }
+  80% { transform: translate3d(-4vw, 10vh, 0) scale(1.1); }
+}
+@keyframes leakB {
+  0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
+  25% { transform: translate3d(-18vw, -10vh, 0) scale(1.15); }
+  55% { transform: translate3d(-8vw, -26vh, 0) scale(0.88); }
+  80% { transform: translate3d(-24vw, 2vh, 0) scale(1.06); }
+}
+@keyframes leakC {
+  0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
+  30% { transform: translate3d(-14vw, 20vh, 0) scale(1.28); }
+  60% { transform: translate3d(-26vw, 4vh, 0) scale(0.9); }
+  85% { transform: translate3d(-6vw, -8vh, 0) scale(1.14); }
+}
+@keyframes leakPulse {
+  0%, 100% { opacity: var(--o); }
+  50% { opacity: calc(var(--o) * 0.55); }
+}
 
 /* ============ 印刷トンボ ============ */
 .print-frame {

@@ -323,6 +323,55 @@ export function pageTurn() {
   src.stop(t + 0.4);
 }
 
+/* ---------- 花火：远处的「ドーン」+ 噼啪声（光先到，声音晚一点） ---------- */
+let lastBoom = 0;
+export function firework(size = 1, crackle = false) {
+  if (!ctx) return;
+  const now = ctx.currentTime;
+  if (now - lastBoom < 0.14) return; // 连发时别糊成一片
+  lastBoom = now;
+  const t = now + rand(0.12, 0.35);
+  const v = Math.min(1.3, size);
+  const src = noise();
+  const lp = ctx.createBiquadFilter();
+  lp.type = 'lowpass';
+  lp.frequency.setValueAtTime(700, t);
+  lp.frequency.exponentialRampToValueAtTime(55, t + 1);
+  const g = ctx.createGain();
+  g.gain.setValueAtTime(0.0001, t);
+  g.gain.exponentialRampToValueAtTime(0.2 * v, t + 0.02);
+  g.gain.exponentialRampToValueAtTime(0.001, t + 1.4);
+  src.connect(lp).connect(g).connect(bus);
+  src.start(t);
+  src.stop(t + 1.5);
+  const o = ctx.createOscillator();
+  o.frequency.setValueAtTime(95, t);
+  o.frequency.exponentialRampToValueAtTime(36, t + 0.55);
+  const og = ctx.createGain();
+  og.gain.setValueAtTime(0.0001, t);
+  og.gain.exponentialRampToValueAtTime(0.22 * v, t + 0.015);
+  og.gain.exponentialRampToValueAtTime(0.001, t + 0.75);
+  o.connect(og).connect(bus);
+  o.start(t);
+  o.stop(t + 0.8);
+  if (!crackle) return;
+  for (let i = 0; i < 16; i++) {
+    const ct = t + rand(0.7, 1.7);
+    const c = noise();
+    const bp = ctx.createBiquadFilter();
+    bp.type = 'bandpass';
+    bp.frequency.value = rand(2500, 6000);
+    bp.Q.value = 1.2;
+    const cg = ctx.createGain();
+    cg.gain.setValueAtTime(0.0001, ct);
+    cg.gain.exponentialRampToValueAtTime(rand(0.03, 0.07), ct + 0.003);
+    cg.gain.exponentialRampToValueAtTime(0.0001, ct + 0.04);
+    c.connect(bp).connect(cg).connect(bus);
+    c.start(ct, rand(0, 1.5));
+    c.stop(ct + 0.05);
+  }
+}
+
 /* ---------- 公共接口 ---------- */
 const makers = { cicada: cicadas, furin, waves, jelly: underwater };
 let enabled = false;

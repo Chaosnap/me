@@ -140,6 +140,7 @@ export const site = {
     socials: [
       // ← 社交链接，不需要的删掉即可
       { name: 'GitHub', handle: '@Chaosnap', url: 'https://github.com/Chaosnap' },
+      { name: 'X', handle: '@WalesHua', url: 'https://x.com/WalesHua' },
       { name: 'bilibili', handle: 'UID 2087892128', url: 'https://space.bilibili.com/2087892128' },
       { name: 'pixiv', handle: 'ID 51288817', url: 'https://www.pixiv.net/users/51288817' },
     ],

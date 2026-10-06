@@ -467,6 +467,7 @@ function colophon() {
   const c = site.colophon;
   return `
   <footer id="colophon" class="colophon" data-chapter="colophon">
+    <canvas class="hanabi" aria-hidden="true"></canvas>
     <div class="signoff">
       <p class="hand" lang="ja">${chars(c.signoff, 'tch')}</p>
       ${underline('end')}

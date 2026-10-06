@@ -9,7 +9,8 @@ import { initSky } from './fx/sky.js';
 import { createJellyLayer } from './fx/jelly.js';
 import { createBGM } from './fx/bgm.js';
 import { initFilmFx } from './fx/film.js';
-import { sound } from './fx/sound.js';
+import { sound, firework } from './fx/sound.js';
+import { createFireworks } from './fx/fireworks.js';
 import { initRailway } from './railway.js';
 import { initScroll, playLoader, coverIntro, initAnimations, initScramble, reduceMotion } from './anim.js';
 import {
@@ -77,6 +78,14 @@ initModal();
 initPostcard(site.contact.email);
 initParallax({ sky });
 initScramble();
+
+// 奥付：滑到底时放夏祭り花火（离开就不再发射，已经炸开的放完为止）
+const colophon = document.getElementById('colophon');
+if (!reduceMotion && colophon) {
+  const hanabi = createFireworks(colophon.querySelector('.hanabi'), { onBurst: (size, crackle) => audioOn() && firework(size, crackle) });
+  if (import.meta.env.DEV) window.__hanabi = hanabi;
+  new IntersectionObserver(([e]) => (e.isIntersecting ? hanabi.play() : hanabi.stop()), { threshold: 0.35 }).observe(colophon);
+}
 
 // 字体 + 着色器首帧都准备好再揭幕（最多等 4.5 秒）
 const timeout = (ms) => new Promise((r) => setTimeout(r, ms));
