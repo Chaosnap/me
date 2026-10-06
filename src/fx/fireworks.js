@@ -56,71 +56,242 @@ const SCHEMES = [
   ['yellow', 'orange', 'blue'],
 ];
 
-/* ---------- 型物（图案花火）：单位坐标里的折线，y 向下；每条带一个颜色角色 0/1/2 ---------- */
-const arc = (cx, cy, rx, ry, a0, a1, n = 24) => Array.from({ length: n + 1 }, (_, i) => {
-  const a = a0 + ((a1 - a0) * i) / n;
-  return [cx + Math.cos(a) * rx, cy + Math.sin(a) * ry];
-});
-const SHAPES = {
-  // 水母：伞 + 波浪伞缘 + 内部生殖腺 + 几条飘动的触手
-  jelly: () => [
-    [0, arc(0, -0.08, 0.78, 0.66, Math.PI, Math.PI * 2, 28)],
-    [0, Array.from({ length: 17 }, (_, i) => [-0.78 + (1.56 * i) / 16, -0.08 + Math.abs(Math.sin(i * 1.6)) * 0.07])],
-    [2, arc(-0.2, -0.36, 0.13, 0.11, 0, Math.PI * 2, 10)],
-    [2, arc(0.2, -0.36, 0.13, 0.11, 0, Math.PI * 2, 10)],
-    ...[-0.52, -0.2, 0.14, 0.46].map((x0, k) => [1, Array.from({ length: 14 }, (_, i) => [x0 + Math.sin(i * 0.7 + k * 1.3) * 0.09, -0.04 + i * 0.075])]),
-  ],
-  heart: () => [[0, Array.from({ length: 49 }, (_, i) => {
-    const t = (i / 48) * Math.PI * 2;
-    return [(16 * Math.sin(t) ** 3) / 17, -(13 * Math.cos(t) - 5 * Math.cos(2 * t) - 2 * Math.cos(3 * t) - Math.cos(4 * t)) / 17 + 0.1];
-  })]],
-  star: () => [[0, Array.from({ length: 11 }, (_, i) => {
-    const a = -Math.PI / 2 + (i * Math.PI) / 5;
-    const r = i % 2 ? 0.42 : 1;
-    return [Math.cos(a) * r, Math.sin(a) * r];
-  })], [2, arc(0, 0, 0.16, 0.16, 0, Math.PI * 2, 8)]],
-  // ニコちゃん
-  smile: () => [
-    [0, arc(0, 0, 1, 1, 0, Math.PI * 2, 40)],
-    [1, arc(-0.36, -0.28, 0.08, 0.16, 0, Math.PI * 2, 8)],
-    [1, arc(0.36, -0.28, 0.08, 0.16, 0, Math.PI * 2, 8)],
-    [2, arc(0, 0.02, 0.58, 0.52, Math.PI * 0.18, Math.PI * 0.82, 16)],
-  ],
-  // 金魚：身体 + 大尾巴 + 眼睛
-  kingyo: () => [
-    [0, arc(-0.2, 0, 0.58, 0.4, Math.PI * 0.2, Math.PI * 1.8, 30)],
-    [1, [[0.3, -0.18], [0.62, -0.62], [1, -0.5], [0.8, -0.12], [0.72, 0], [0.8, 0.12], [1, 0.5], [0.62, 0.62], [0.3, 0.18]]],
-    [2, arc(-0.5, -0.1, 0.06, 0.06, 0, Math.PI * 2, 6)],
-    [1, [[-0.1, 0.36], [0.05, 0.62], [0.2, 0.34]]],
-  ],
-  // 猫
-  neko: () => [
-    [0, arc(0, 0.08, 0.86, 0.74, -Math.PI * 0.28, Math.PI * 1.28, 32)],
-    [0, [[-0.62, -0.42], [-0.6, -0.98], [-0.18, -0.64], [0.18, -0.64], [0.6, -0.98], [0.62, -0.42]]],
-    [2, arc(-0.32, -0.04, 0.09, 0.09, 0, Math.PI * 2, 7)],
-    [2, arc(0.32, -0.04, 0.09, 0.09, 0, Math.PI * 2, 7)],
-    [1, [[-1.15, 0.12], [-0.5, 0.2]]],
-    [1, [[-1.1, 0.34], [-0.5, 0.3]]],
-    [1, [[1.15, 0.12], [0.5, 0.2]]],
-    [1, [[1.1, 0.34], [0.5, 0.3]]],
-    [1, [[-0.12, 0.3], [0, 0.4], [0.12, 0.3]]],
-  ],
+/* ---------- 型物（图案花火）----------
+ * 只放五种：水母 / 和伞 / 鲸鱼 / 金鱼 / 风铃。数量少，但每个都画得很细。
+ * 单位坐标（约 -1~1，y 向下），每条线带一个颜色角色：0 = 轮廓，1 = 结构，2 = 点缀 */
+const arc = (cx, cy, rx, ry, a0, a1, n = 24) =>
+  Array.from({ length: n + 1 }, (_, i) => {
+    const a = a0 + ((a1 - a0) * i) / n;
+    return [cx + Math.cos(a) * rx, cy + Math.sin(a) * ry];
+  });
+const quad = (p, c, q, n = 16) =>
+  Array.from({ length: n + 1 }, (_, i) => {
+    const t = i / n,
+      u = 1 - t;
+    return [u * u * p[0] + 2 * u * t * c[0] + t * t * q[0], u * u * p[1] + 2 * u * t * c[1] + t * t * q[1]];
+  });
+const cubic = (p, c1, c2, q, n = 20) =>
+  Array.from({ length: n + 1 }, (_, i) => {
+    const t = i / n,
+      u = 1 - t;
+    const k0 = u * u * u,
+      k1 = 3 * u * u * t,
+      k2 = 3 * u * t * t,
+      k3 = t * t * t;
+    return [k0 * p[0] + k1 * c1[0] + k2 * c2[0] + k3 * q[0], k0 * p[1] + k1 * c1[1] + k2 * c2[1] + k3 * q[1]];
+  });
+// 穿过各点的平滑曲线（Catmull-Rom）
+const spline = (pts, seg = 8) => {
+  const out = [];
+  for (let i = 0; i < pts.length - 1; i++) {
+    const p0 = pts[i - 1] || pts[i],
+      p1 = pts[i],
+      p2 = pts[i + 1],
+      p3 = pts[i + 2] || p2;
+    for (let k = 0; k < seg; k++) {
+      const t = k / seg,
+        t2 = t * t,
+        t3 = t2 * t;
+      const f = (a, b, c, d) => 0.5 * (2 * b + (-a + c) * t + (2 * a - 5 * b + 4 * c - d) * t2 + (-a + 3 * b - 3 * c + d) * t3);
+      out.push([f(p0[0], p1[0], p2[0], p3[0]), f(p0[1], p1[1], p2[1], p3[1])]);
+    }
+  }
+  out.push(pts[pts.length - 1]);
+  return out;
 };
-// 水母出现得最多
-const SHAPE_W = [['jelly', 0.34], ['kingyo', 0.16], ['heart', 0.13], ['star', 0.13], ['smile', 0.12], ['neko', 0.12]];
+const ring = (cx, cy, r, n = 10) => arc(cx, cy, r, r, 0, Math.PI * 2, n);
+
+const SHAPES = {
+  // 水母（月水母）：外伞 + 内伞 + 波浪伞缘 + 四个马蹄形生殖腺 + 两条褶边口腕 + 五条飘动的长触手
+  jelly: () => [
+    [0, arc(0, -0.05, 0.8, 0.64, Math.PI, Math.PI * 2, 36)],
+    [1, arc(0, -0.05, 0.6, 0.42, Math.PI + 0.18, Math.PI * 2 - 0.18, 24)],
+    ...Array.from({ length: 8 }, (_, i) => [0, arc(-0.7 + i * 0.2, -0.05, 0.1, 0.07, Math.PI, 0, 8)]),
+    ...[[-0.3, -0.27], [-0.11, -0.36], [0.11, -0.36], [0.3, -0.27]].map(([cx, cy]) => [2, arc(cx, cy, 0.075, 0.065, 0.5, Math.PI * 2 - 0.5, 10)]),
+    ...[-1, 1].map((sd) => [1, Array.from({ length: 22 }, (_, i) => [sd * (0.07 + i * 0.012) + Math.sin(i * 1.3) * 0.035, -0.04 + i * 0.03])]),
+    ...[-0.62, -0.32, 0, 0.32, 0.62].map((x0, k) => [1, Array.from({ length: 26 }, (_, i) => {
+      const t = i / 25;
+      return [x0 * (1 + t * 0.15) + Math.sin(t * 7 + k * 1.4) * 0.07 * t, -0.03 + t * 1.02];
+    })]),
+  ],
+  // 和伞（蛇の目）：伞面 + 弯曲的伞骨 + 伞缘 + 一圈白色环带 + 顶尖 + 伞柄和弯钩
+  kasa: () => {
+    const tips = Array.from({ length: 9 }, (_, i) => -0.95 + i * (1.9 / 8));
+    return [
+      [0, arc(0, -0.05, 0.95, 0.7, Math.PI, Math.PI * 2, 36)],
+      ...tips.slice(0, -1).map((x0, i) => [0, quad([x0, -0.05], [(x0 + tips[i + 1]) / 2, -0.13], [tips[i + 1], -0.05], 6)]),
+      ...tips.slice(1, -1).map((xi) => [1, quad([0, -0.75], [xi * 0.82, -0.66], [xi, -0.05], 14)]),
+      [2, arc(0, -0.05, 0.6, 0.45, Math.PI + 0.06, Math.PI * 2 - 0.06, 26)],
+      [2, arc(0, -0.05, 0.52, 0.39, Math.PI + 0.08, Math.PI * 2 - 0.08, 22)],
+      [1, [[0, -0.76], [0, -0.95]]],
+      [1, ring(0, -0.79, 0.035, 8)],
+      [1, [[0, -0.05], [0, 0.82]]],
+      [1, arc(0.1, 0.82, 0.1, 0.1, Math.PI, 0, 10)],
+    ];
+  },
+  // 鲸鱼：流线身体 + 带缺口的尾鳍 + 嘴线 + 喉褶 + 眼睛 + 胸鳍 + 头顶喷出的水柱
+  kujira: () => [
+    [0, cubic([-0.95, 0.05], [-0.95, -0.42], [-0.45, -0.5], [0.05, -0.4], 20)],
+    [0, cubic([0.05, -0.4], [0.38, -0.33], [0.58, -0.2], [0.78, -0.08], 14)],
+    [0, spline([[0.78, -0.08], [0.9, -0.28], [1.08, -0.46], [1.0, -0.22], [0.96, -0.04], [1.02, 0.14], [1.1, 0.3], [0.92, 0.1], [0.78, 0.03]], 6)],
+    [0, cubic([0.78, 0.03], [0.42, 0.24], [-0.25, 0.42], [-0.72, 0.3], 22)],
+    [0, cubic([-0.72, 0.3], [-0.88, 0.24], [-0.96, 0.14], [-0.95, 0.05], 8)],
+    [1, quad([-0.95, 0.05], [-0.62, 0.15], [-0.3, 0.06], 12)],
+    [1, quad([-0.84, 0.18], [-0.55, 0.3], [-0.2, 0.3], 10)],
+    [1, quad([-0.8, 0.24], [-0.52, 0.36], [-0.12, 0.36], 10)],
+    [2, ring(-0.48, -0.06, 0.04, 8)],
+    [0, spline([[-0.28, 0.3], [-0.12, 0.5], [0.04, 0.6], [0.02, 0.46], [-0.12, 0.3]], 6)],
+    [2, quad([-0.38, -0.48], [-0.4, -1.02], [-0.66, -0.8], 12)],
+    [2, quad([-0.38, -0.48], [-0.36, -1.02], [-0.1, -0.8], 12)],
+    [2, quad([-0.38, -0.48], [-0.42, -0.92], [-0.54, -0.7], 10)],
+    [2, quad([-0.38, -0.48], [-0.34, -0.92], [-0.22, -0.7], 10)],
+  ],
+  // 金魚（琉金）：圆身体 + 飘逸的双尾 + 尾鳍纹 + 背鳍 / 胸鳍 / 腹鳍 + 鳃盖 + 眼睛 + 鳞片
+  kingyo: () => [
+    [0, cubic([-0.75, 0], [-0.7, -0.38], [-0.28, -0.52], [0.1, -0.42], 18)],
+    [0, cubic([0.1, -0.42], [0.28, -0.36], [0.34, -0.22], [0.36, -0.12], 8)],
+    [0, cubic([-0.75, 0], [-0.7, 0.32], [-0.22, 0.44], [0.18, 0.32], 18)],
+    [0, cubic([0.18, 0.32], [0.3, 0.26], [0.35, 0.16], [0.36, 0.1], 6)],
+    [1, cubic([0.36, -0.12], [0.55, -0.4], [0.8, -0.78], [1.02, -0.7], 14)],
+    [1, spline([[1.02, -0.7], [0.92, -0.5], [1.02, -0.34], [0.86, -0.18], [0.8, 0], [0.86, 0.18], [1.02, 0.34], [0.92, 0.5], [1.02, 0.68]], 6)],
+    [1, cubic([0.36, 0.1], [0.55, 0.38], [0.8, 0.76], [1.02, 0.68], 14)],
+    ...[[0.86, -0.46], [0.84, 0], [0.86, 0.46]].map((q) => [2, quad([0.42, 0], [0.62, q[1] * 0.6], q, 8)]),
+    [1, spline([[-0.12, -0.48], [0.0, -0.76], [0.2, -0.72], [0.27, -0.38]], 6)],
+    [1, spline([[-0.36, 0.2], [-0.24, 0.46], [-0.12, 0.44], [-0.2, 0.22]], 5)],
+    [1, spline([[0.08, 0.34], [0.2, 0.56], [0.3, 0.28]], 5)],
+    [1, arc(-0.58, 0, 0.2, 0.3, -0.95, 0.95, 10)],
+    [2, ring(-0.55, -0.1, 0.06, 8)],
+    ...[[-0.18, -0.16], [0.02, -0.18], [-0.08, 0.04], [0.12, 0.02], [-0.18, 0.22], [0.02, 0.2]].map(([cx, cy]) => [2, arc(cx, cy, 0.065, 0.065, -1.1, 1.1, 5)]),
+  ],
+  // 风铃：吊绳 + 玻璃钟（带立体口沿）+ 钟面上的波纹 + 舌 + 随风飘的短册（上面写着字）
+  furin: () => [
+    [1, [[0, -1.0], [0, -0.64]]],
+    [1, ring(0, -0.61, 0.035, 8)],
+    [0, arc(0, -0.15, 0.42, 0.45, Math.PI, Math.PI * 2, 28)],
+    [0, quad([-0.42, -0.15], [-0.44, -0.1], [-0.48, -0.07], 4)],
+    [0, quad([0.42, -0.15], [0.44, -0.1], [0.48, -0.07], 4)],
+    [0, arc(0, -0.07, 0.48, 0.07, 0, Math.PI * 2, 30)],
+    [2, Array.from({ length: 22 }, (_, i) => {
+      const x = -0.34 + (i / 21) * 0.68;
+      return [x, -0.32 + Math.sin(x * 20) * 0.03];
+    })],
+    [2, ring(-0.16, -0.44, 0.03, 6)],
+    [2, ring(0.16, -0.44, 0.03, 6)],
+    [1, [[0, -0.56], [0, 0.18]]],
+    [1, ring(0, 0.0, 0.04, 8)],
+    [2, [[-0.13, 0.18], [0.13, 0.18], [0.2, 0.96], [-0.06, 0.96], [-0.13, 0.18]]],
+    [1, [[0.035, 0.3], [0.045, 0.48]]],
+    [1, [[0.05, 0.56], [0.062, 0.78]]],
+  ],
+  // 樱花：五片带缺口的花瓣 + 每瓣一道花脉 + 花蕊
+  sakura: () => {
+    const petal = [[0, -0.1], [-0.22, -0.3], [-0.34, -0.6], [-0.16, -0.97], [0, -0.85], [0.16, -0.97], [0.34, -0.6], [0.22, -0.3], [0, -0.1]];
+    const rotp = (pts, a) => pts.map(([x, y]) => [x * Math.cos(a) - y * Math.sin(a), x * Math.sin(a) + y * Math.cos(a)]);
+    const out = [];
+    for (let k = 0; k < 5; k++) {
+      const a = (k * Math.PI * 2) / 5;
+      out.push([0, rotp(spline(petal, 6), a)]);
+      out.push([1, rotp([[0, -0.2], [0, -0.55]], a)]);
+    }
+    out.push([2, ring(0, 0, 0.09, 10)]);
+    for (let k = 0; k < 8; k++) {
+      const a = (k * Math.PI * 2) / 8 + 0.2;
+      out.push([2, [[Math.cos(a) * 0.1, Math.sin(a) * 0.1], [Math.cos(a) * 0.28, Math.sin(a) * 0.28]]]);
+      out.push([2, ring(Math.cos(a) * 0.31, Math.sin(a) * 0.31, 0.028, 5)]);
+    }
+    return out;
+  },
+  // 爱心：内外两层 + 右上一颗闪光
+  heart: () => {
+    const h = (s, dy = 0) =>
+      Array.from({ length: 61 }, (_, i) => {
+        const t = (i / 60) * Math.PI * 2;
+        return [((16 * Math.sin(t) ** 3) / 17) * s, (-(13 * Math.cos(t) - 5 * Math.cos(2 * t) - 2 * Math.cos(3 * t) - Math.cos(4 * t)) / 17 + 0.12) * s + dy];
+      });
+    const sx = 0.72,
+      sy = -0.72;
+    return [
+      [0, h(1)],
+      [1, h(0.7, 0.03)],
+      [2, [[sx, sy - 0.2], [sx, sy + 0.2]]],
+      [2, [[sx - 0.2, sy], [sx + 0.2, sy]]],
+      [2, [[sx - 0.09, sy - 0.09], [sx + 0.09, sy + 0.09]]],
+      [2, [[sx - 0.09, sy + 0.09], [sx + 0.09, sy - 0.09]]],
+    ];
+  },
+  // 名字「Yuki」：手写笔画 + 一道手写下划线（和页面上「また来週。」的下划线呼应）
+  yuki: () => [
+    [0, quad([-0.98, -0.5], [-0.9, -0.22], [-0.78, -0.08], 10)],
+    [0, quad([-0.56, -0.52], [-0.66, -0.24], [-0.78, -0.08], 10)],
+    [0, quad([-0.78, -0.08], [-0.8, 0.16], [-0.82, 0.4], 10)],
+    [0, spline([[-0.5, -0.1], [-0.5, 0.16], [-0.44, 0.34], [-0.3, 0.4], [-0.18, 0.32], [-0.13, 0.12]], 6)],
+    [0, [[-0.13, -0.1], [-0.12, 0.4]]],
+    [0, quad([0.07, -0.56], [0.06, -0.1], [0.07, 0.4], 12)],
+    [0, quad([0.38, -0.14], [0.2, 0.0], [0.09, 0.12], 8)],
+    [0, quad([0.15, 0.06], [0.26, 0.24], [0.4, 0.4], 8)],
+    [0, quad([0.6, -0.1], [0.59, 0.16], [0.61, 0.4], 8)],
+    [2, ring(0.6, -0.33, 0.045, 8)],
+    [1, spline([[-1.0, 0.56], [-0.4, 0.66], [0.3, 0.6], [0.96, 0.46]], 10)],
+    [1, spline([[-0.7, 0.68], [0.0, 0.72], [0.6, 0.64]], 8)],
+  ],
+  // 鯉のぼり：旗杆 + 顶上的矢车 + 三条迎风波动的鲤鱼（真鯉 / 緋鯉 / 子鯉），每条有嘴、眼、鳃、鳞、分叉尾
+  koinobori: () => {
+    const out = [];
+    const px = -0.88;
+    out.push([3, [[px, -0.98], [px, 1.0]]]);
+    out.push([3, ring(px, -0.9, 0.06, 10)]);
+    for (let k = 0; k < 6; k++) {
+      const a = (k * Math.PI) / 3;
+      out.push([3, [[px + Math.cos(a) * 0.06, -0.9 + Math.sin(a) * 0.06], [px + Math.cos(a) * 0.13, -0.9 + Math.sin(a) * 0.13]]]);
+    }
+    [[-0.66, 1.72, 0.3, 0], [-0.22, 1.5, 0.26, 1], [0.18, 1.2, 0.2, 2]].forEach(([y0, L, h, role], ci) => {
+      const x0 = px + 0.04;
+      const wave = (t) => Math.sin(t * 7 + ci * 1.3) * 0.06 * t;
+      // 头部饱满、往尾巴收细
+      const half = (t) => (h / 2) * (0.82 + 0.28 * Math.sin((Math.PI * t * 0.9) / 0.86) - 0.3 * t);
+      const N = 18;
+      const top = [],
+        bot = [];
+      for (let i = 0; i <= N; i++) {
+        const t = (i / N) * 0.86;
+        top.push([x0 + t * L, y0 - half(t) + wave(t)]);
+        bot.push([x0 + t * L, y0 + half(t) + wave(t)]);
+      }
+      out.push([role, top], [role, bot]);
+      // 分叉的尾巴
+      const e = 0.86,
+        ex = x0 + e * L,
+        tx = x0 + L;
+      out.push([role, [[ex, y0 - half(e) + wave(e)], [tx, y0 - half(e) * 1.5 + wave(1)], [ex + (tx - ex) * 0.45, y0 + wave(0.93)], [tx, y0 + half(e) * 1.5 + wave(1)], [ex, y0 + half(e) + wave(e)]]]);
+      // 张开的嘴、眼睛、鳃
+      out.push([role, arc(x0, y0, 0.035, h / 2, -Math.PI / 2, Math.PI / 2, 8)]);
+      out.push([4, ring(x0 + 0.12 * L * 0.6 + 0.04, y0 - h * 0.12 + wave(0.08), h * 0.13, 8)]);
+      out.push([4, arc(x0 + 0.17 * L, y0 + wave(0.17), h * 0.16, h * 0.42, -1.2, 1.2, 8)]);
+      // 鳞
+      for (let i = 0; i < 4; i++) {
+        const t = 0.3 + i * 0.12;
+        out.push([4, arc(x0 + t * L, y0 + wave(t), h * 0.13, h * 0.17, -1.1, 1.1, 5)]);
+      }
+    });
+    return out;
+  },
+};
+// 各图案的配色（轮廓 / 结构 / 点缀……按角色）、能转多少、能不能左右翻
+const SHAPE_CFG = {
+  jelly: { w: 0.2, rot: 0.2, flip: false, colors: [['cyan', 'violet', 'pink'], ['silver', 'cyan', 'pink'], ['white', 'blue', 'pink']] },
+  kasa: { w: 0.1, rot: 0.32, flip: true, colors: [['red', 'gold', 'white'], ['violet', 'gold', 'pink'], ['pink', 'gold', 'white']] },
+  kujira: { w: 0.1, rot: 0.14, flip: true, colors: [['blue', 'silver', 'white'], ['cyan', 'blue', 'white']] },
+  kingyo: { w: 0.1, rot: 0.25, flip: true, colors: [['red', 'orange', 'white'], ['orange', 'gold', 'white']] },
+  furin: { w: 0.1, rot: 0.08, flip: false, colors: [['cyan', 'red', 'pink'], ['silver', 'red', 'gold']] },
+  sakura: { w: 0.12, rot: 0.6, flip: false, colors: [['pink', 'white', 'gold'], ['pink', 'red', 'yellow'], ['white', 'pink', 'gold']] },
+  heart: { w: 0.08, rot: 0.22, flip: false, colors: [['pink', 'red', 'gold'], ['red', 'pink', 'white']] },
+  yuki: { w: 0.1, rot: 0.08, flip: false, colors: [['gold', 'pink', 'white'], ['pink', 'cyan', 'gold'], ['cyan', 'violet', 'white']] },
+  koinobori: { w: 0.1, rot: 0.1, flip: true, spark: 4, colors: [['blue', 'red', 'cyan', 'gold', 'white'], ['violet', 'red', 'pink', 'gold', 'white']] },
+};
 const pickShape = () => {
   let r = Math.random();
-  for (const [k, w] of SHAPE_W) if ((r -= w) < 0) return k;
+  for (const [k, c] of Object.entries(SHAPE_CFG)) if ((r -= c.w) < 0) return k;
   return 'jelly';
-};
-// 图案的配色（主线 / 第二色 / 点缀）
-const SHAPE_COLORS = {
-  jelly: [['cyan', 'violet', 'pink'], ['silver', 'cyan', 'pink'], ['white', 'blue', 'gold']],
-  heart: [['pink', 'red', 'gold'], ['red', 'pink', 'gold']],
-  star: [['gold', 'yellow', 'red'], ['yellow', 'gold', 'cyan']],
-  smile: [['yellow', 'red', 'orange'], ['gold', 'cyan', 'pink']],
-  kingyo: [['red', 'orange', 'white'], ['orange', 'red', 'white']],
-  neko: [['silver', 'gold', 'green'], ['violet', 'pink', 'gold']],
 };
 
 // 沿折线均匀取 n 个点
@@ -130,6 +301,7 @@ function sample(lines, n) {
   for (const [role, pts] of lines)
     for (let i = 0; i < pts.length - 1; i++) {
       const l = Math.hypot(pts[i + 1][0] - pts[i][0], pts[i + 1][1] - pts[i][1]);
+      if (l < 1e-6) continue;
       segs.push([role, pts[i], pts[i + 1], l]);
       total += l;
     }
@@ -217,19 +389,26 @@ export function createFireworks(canvas, { onBurst } = {}) {
   const smokes = [];
   const pending = []; // 延迟执行（千輪的小花等）
 
+  // 炸开的星（STAR / DOT / WILLOW）多一段「余烬」：主体烧完后，带着微光闪烁、左右飘着慢慢落下
+  const EMBER = 1.6; // 寿命加长的倍数
+  const EMBER_AT = 0.55; // 余烬阶段从寿命的哪里开始
   function add(x, y, vx, vy, o) {
     if (ps.length > cap * 1.15) return null;
+    const k = o.k ?? STAR;
+    const long = k === STAR || k === DOT || k === WILLOW;
     const p = {
       x,
       y,
       vx,
       vy,
       age: 0,
-      life: o.life,
+      life: o.life * (long ? EMBER : 1),
+      ember: long,
+      sw: rand(0, TAU),
       c: o.c,
       c2: o.c2 ?? -1,
-      swap: o.swap ?? 2,
-      k: o.k ?? STAR,
+      swap: (o.swap ?? 2) / (long ? EMBER : 1),
+      k,
       drag: o.drag ?? 0.975,
       g: o.g ?? 0.03,
       trail: o.trail ?? 3,
@@ -340,19 +519,21 @@ export function createFireworks(canvas, { onBurst } = {}) {
       case 'kata': {
         // 型物：每颗星的初速度正比于它在图案上的位置 → 炸开后整个图案等比放大，轮廓一直保持
         const name = sh.shape || pickShape();
-        const cols = pick(SHAPE_COLORS[name]).map((n) => C[n]);
-        const d = 0.968;
+        const cfg = SHAPE_CFG[name];
+        const cols = pick(cfg.colors).map((n) => C[n]);
+        const d = 0.97;
         const v = R * 0.95 * (1 - d);
-        const rot = rand(-0.35, 0.35);
-        const squash = Math.cos(rand(0, 0.7)) * (Math.random() < 0.5 ? -1 : 1); // 立体感：像从侧面看
+        const rot = rand(-cfg.rot, cfg.rot);
+        // 一点立体感（像略微侧着看），不压得太扁，细节才看得清
+        const squash = rand(0.86, 1) * (cfg.flip && Math.random() < 0.5 ? -1 : 1);
         const cr = Math.cos(rot),
           sr = Math.sin(rot);
-        for (const [role, px, py] of sample(SHAPES[name](), n(240))) {
+        for (const [role, px, py] of sample(SHAPES[name](), n(380))) {
           const ux = px * squash,
             uy = py;
           const vx = (ux * cr - uy * sr) * v,
             vy = (ux * sr + uy * cr) * v;
-          add(x, y, vx, vy, { life: rand(1.8, 2.2), c: cols[role], c2: Math.random() < 0.3 ? C.white : -1, swap: 0.8, drag: d, g: 0.012, trail: 1.4, strobe: role === 2 });
+          add(x, y, vx, vy, { life: rand(2.1, 2.5), c: cols[role], c2: role === 0 && Math.random() < 0.25 ? C.white : -1, swap: 0.82, drag: d, g: 0.009, trail: 1.1, thin: true, strobe: role === (cfg.spark ?? 2) && Math.random() < 0.5 });
         }
         flash(x, y, R * 0.8, cols[0], 0.35);
         smoke(x, y, R * 0.8);
@@ -380,13 +561,13 @@ export function createFireworks(canvas, { onBurst } = {}) {
   }
 
   const TYPES = [
-    ['kiku', 0.27],
-    ['botan', 0.16],
-    ['kamuro', 0.14],
-    ['senrin', 0.1],
+    ['kiku', 0.3],
+    ['botan', 0.17],
+    ['kamuro', 0.15],
+    ['senrin', 0.11],
     ['ring', 0.03],
-    ['nishiki', 0.11],
-    ['kata', 0.19],
+    ['nishiki', 0.13],
+    ['kata', 0.07],
   ];
   const randType = () => {
     let r = Math.random();
@@ -406,6 +587,7 @@ export function createFireworks(canvas, { onBurst } = {}) {
   let playing = false;
   let nextAt = 0;
   let salvoAt = 0;
+  let salvos = 0;
   let clock = 0;
   const queue = []; // { at, sh }
   function program() {
@@ -420,13 +602,15 @@ export function createFireworks(canvas, { onBurst } = {}) {
       for (let i = 0; i < m; i++) queue.push({ at: clock + i * rand(0.08, 0.16), sh: shell({ type: pick(['kiku', 'botan', 'botan', 'nishiki']), size: rand(0.55, 0.9), x: 0.12 + 0.76 * (i % 2 ? i / (m - 1) : 1 - i / (m - 1)) + rand(-0.05, 0.05), y: rand(0.12, 0.5) }) });
       const end = clock + m * 0.12 + 0.3;
       for (let i = 0; i < 5; i++) queue.push({ at: end + i * 0.1, sh: shell({ type: 'kamuro', size: rand(1, 1.3), x: 0.12 + i * 0.19, y: rand(0.08, 0.2) }) });
+      // 每隔一轮，用一发大大的「Yuki」署名收尾
+      if (salvos++ % 2 === 1) queue.push({ at: end + 0.9, sh: shell({ type: 'kata', shape: 'yuki', x: 0.5, y: 0.3, size: 1.25 }) });
       salvoAt = clock + rand(10, 14);
       nextAt = end + 2.6;
       return;
     }
-    if (Math.random() < 0.16) {
-      // 同一个图案三连发（比如三只水母并排）
-      const shape = pickShape();
+    if (Math.random() < 0.04) {
+      // 偶尔三只水母并排
+      const shape = 'jelly';
       [0.24, 0.5, 0.76].forEach((x, i) => queue.push({ at: clock + i * 0.18, sh: shell({ type: 'kata', shape, x: x + rand(-0.04, 0.04), y: rand(0.16, 0.36), size: rand(0.7, 0.9) }) }));
       nextAt = clock + rand(1.8, 2.4);
       return;
@@ -551,13 +735,21 @@ export function createFireworks(canvas, { onBurst } = {}) {
       p.x += p.vx * f;
       p.y += p.vy * f;
 
-      // 透明度：出生很亮，慢慢暗下去
-      let a = fr < 0.08 ? 1 : Math.pow(1 - (fr - 0.08) / 0.92, 1.3);
-      if (p.strobe && fr > 0.55) a *= Math.random() < 0.45 ? 1 : 0.12;
+      // 透明度：出生很亮，慢慢暗下去；之后进入余烬阶段，闪着微光飘落
+      let a;
+      if (!p.ember) a = fr < 0.08 ? 1 : Math.pow(1 - (fr - 0.08) / 0.92, 1.3);
+      else if (fr < 0.05) a = 1;
+      else if (fr < EMBER_AT) a = 1 - ((fr - 0.05) / (EMBER_AT - 0.05)) * 0.36;
+      else {
+        const k = (fr - EMBER_AT) / (1 - EMBER_AT);
+        a = 0.64 * Math.pow(1 - k, 1.15) * (0.6 + 0.4 * Math.random());
+        p.vx += Math.sin(p.age * 2.2 + p.sw) * 0.008 * f; // 左右飘
+      }
+      if (p.strobe && fr > 0.4) a *= Math.random() < 0.45 ? 1 : 0.12;
       if (p.k === GLITTER || p.k === POP) a *= Math.random() < 0.6 ? 1 : 0.2;
       // 颜色：刚炸开时偏白热，之后变成本色，到点再变色
       let c = fr > p.swap && p.c2 >= 0 ? p.c2 : p.c;
-      if (fr < 0.07 && p.k !== WILLOW && p.k !== SPARK) c = C.white;
+      if (fr < 0.045 && p.k !== WILLOW && p.k !== SPARK) c = C.white;
 
       if (p.k === WILLOW) {
         // 冠菊：记下走过的路，拖出长长的下垂尾巴，并且一路掉闪粉
@@ -630,8 +822,8 @@ export function createFireworks(canvas, { onBurst } = {}) {
       // 开场：三发齐放
       salvoAt = clock + rand(7, 10);
       nextAt = clock + 1.4;
-      // 开场：中间一发大菊，两边各一只水母
-      [0.25, 0.5, 0.75].forEach((x, i) => queue.push({ at: clock + i * 0.08, sh: shell(i === 1 ? { type: 'kiku', x, y: 0.22, size: 1.25 } : { type: 'kata', shape: 'jelly', x, y: rand(0.2, 0.3), size: 0.9 }) }));
+      // 开场：两边两发菊，中间一只水母
+      [0.22, 0.5, 0.78].forEach((x, i) => queue.push({ at: clock + i * 0.08, sh: shell(i === 1 ? { type: 'kata', shape: 'jelly', x, y: 0.3, size: 1.1 } : { type: 'kiku', x, y: rand(0.18, 0.28), size: 1 }) }));
       start();
     },
     stop() {
