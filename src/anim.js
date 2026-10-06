@@ -274,15 +274,22 @@ export function initAnimations({ sky }) {
   // ---- あらすじ
   const railway = $('.railway');
   if (railway) {
+    // 黄昏后车头灯亮起：变量只写在电车层上，且只在变化时写
+    const trainLayer = $('.train-layer', railway);
+    let dusk = '';
     ScrollTrigger.create({
       trigger: railway,
       start: 'top 40%',
       end: 'bottom 40%',
-      onUpdate: (s) => railway.style.setProperty('--dusk', gsap.utils.clamp(0, 1, (s.progress - 0.62) / 0.3).toFixed(3)),
+      onUpdate: (s) => {
+        const v = gsap.utils.clamp(0, 1, (s.progress - 0.62) / 0.3).toFixed(2);
+        if (v !== dusk && trainLayer) trainLayer.style.setProperty('--dusk', (dusk = v));
+      },
     });
     $$('.station').forEach((st) => {
       gsap.timeline({ scrollTrigger: { trigger: st, start: 'top 80%' } })
-        .from($('.station-sign', st), { rotateX: -95, transformOrigin: 'top center', transformPerspective: 800, duration: 1.1, ease: 'elastic.out(1, 0.6)' })
+        // 站牌像挂牌一样翻下来：一次回弹，比 elastic 更顺；结束后交还 transform（到站时的上浮才不会被覆盖）
+        .from($('.station-sign', st), { rotateX: -82, transformOrigin: '50% 0%', transformPerspective: 900, duration: 0.95, ease: 'back.out(1.5)', force3D: true, clearProps: CLEAR })
         .from($('.station-text', st), { y: 20, opacity: 0, duration: 0.6 }, 0.3);
     });
   }

@@ -36,7 +36,7 @@ export function createBGM({ src, title, artist, volume = 0.6 }) {
     const t0 = performance.now();
     const tick = (now) => {
       const k = Math.min(1, (now - t0) / ms);
-      el.volume = from + (v - from) * k;
+      el.volume = Math.min(1, Math.max(0, from + (v - from) * k));
       if (k < 1) fadeRaf = requestAnimationFrame(tick);
       else done && done();
     };

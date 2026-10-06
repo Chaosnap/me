@@ -225,14 +225,20 @@ export function initNav({ audioOn }) {
     const tl = gsap.timeline({ onComplete: () => (busy = false) });
     tl.set(turn, { display: 'block' })
       .fromTo('.pt-sheet', { clipPath: 'polygon(100% 0%, 100% 0%, 100% 100%, 100% 100%)' }, { clipPath: 'polygon(0% 0%, 100% 0%, 100% 100%, -20% 100%)', duration: 0.55, ease: 'power3.in' })
-      .fromTo('.pt-shadow', { xPercent: 0, opacity: 0 }, { xPercent: -100, opacity: 1, duration: 0.55, ease: 'power3.in' }, 0)
+      // 卷页阴影：贴着纸张斜边扫过去，盖满后立刻消失（不会在定格时留在右侧）
+      .fromTo(
+        '.pt-shadow',
+        { x: innerWidth * 0.74, skewX: (Math.atan((0.2 * innerWidth) / innerHeight) * 180) / Math.PI, opacity: 1 },
+        { x: -innerWidth * 0.26, duration: 0.55, ease: 'power3.in' },
+        0,
+      )
+      .set('.pt-shadow', { opacity: 0 })
       .from('.pt-label > *', { y: 30, opacity: 0, stagger: 0.06, duration: 0.4, ease: 'back.out(2)' }, 0.35)
       .add(() => {
         lenis.scrollTo(target, { immediate: true, force: true });
         ScrollTrigger.update();
       })
       .to('.pt-sheet', { clipPath: 'polygon(0% 0%, 0% 0%, -20% 100%, -20% 100%)', duration: 0.6, ease: 'power3.inOut' }, '+=0.35')
-      .to('.pt-shadow', { opacity: 0, duration: 0.3 }, '<')
       .set(turn, { display: 'none' });
   };
 
@@ -459,4 +465,47 @@ export function initParallax({ sky }) {
     fy(-ny);
     sky && sky.setMouse(nx, -ny);
   });
+}
+
+/* ---------- 表紙 → 目次：水母群从底部两侧沿「倒梯形」的两条斜边浮上去 ---------- */
+export function initSwarm({ swarm }) {
+  if (reduceMotion) return;
+  let lastAt = -1e9;
+  const rise = () => {
+    const now = performance.now();
+    if (now - lastAt < 5000) return;
+    lastAt = now;
+    const W = innerWidth,
+      H = innerHeight;
+    // 倒梯形：底边窄（0.30W~0.70W），顶边宽（贴近两侧），斜边的倾角
+    const tilt = Math.atan((0.27 * W) / H);
+    const per = W < 700 ? 8 : 13;
+    for (const side of [-1, 1]) {
+      for (let i = 0; i < per; i++) {
+        const near = Math.random() < 0.55;
+        const bx = W * (0.5 + side * rand(0.14, 0.24));
+        setTimeout(() => {
+          swarm.spawn(bx + rand(-0.05, 0.05) * W, H + rand(30, 240), {
+            ang: side * tilt * rand(0.85, 1.15),
+            lock: true,
+            r: near ? rand(26, 44) : rand(11, 20),
+            depth: near ? rand(0.95, 1.1) : rand(0.72, 0.85),
+            speed: near ? rand(2.4, 3.3) : rand(1.4, 2.0),
+            boost: near ? 1.4 : 0.8,
+            alpha: near ? rand(0.85, 1) : rand(0.45, 0.65),
+            life: rand(6.5, 8),
+            vx: 0,
+          });
+        }, rand(0, 1400));
+      }
+    }
+    // 中间一串小气泡
+    for (let i = 0; i < 26; i++) setTimeout(() => swarm.bubble(W * rand(0.42, 0.58), H + rand(0, 40), { r: rand(1.5, 4.5) }), rand(0, 1600));
+  };
+  ScrollTrigger.create({
+    trigger: '#contents',
+    start: 'top 92%',
+    onEnter: rise,
+  });
+  return { rise };
 }

@@ -26,6 +26,7 @@ import {
   initModal,
   initPostcard,
   initNextJellies,
+  initSwarm,
   initParallax,
 } from './ui.js';
 
@@ -48,6 +49,9 @@ const cover = document.getElementById('cover');
 // 水母：全屏一层（点击 / 次号予告 / 效果音），封面天空一层
 const jelly = createJellyLayer(document.getElementById('fx-canvas'), { fixed: true, max: 40 });
 // 封面：简化版水母（30fps、1x 分辨率），揭幕后才开始
+// 表紙 → 目次 的水母群：独立一层，简化画法、1x 分辨率
+const swarm = createJellyLayer(document.getElementById('swarm-canvas'), { fixed: true, max: 34, lite: true, dpr: 1 });
+if (import.meta.env.DEV) window.__swarm = swarm;
 const coverJelly = createJellyLayer(cover.querySelector('.cover-jelly'), { fixed: false, max: 5, interactive: true, lite: true, fps: 30, dpr: 1 });
 const startCoverJellies = () =>
   !reduceMotion &&
@@ -65,7 +69,7 @@ const spawnFromBottom = () => jelly.spawn(innerWidth * rand(0.1, 0.9), innerHeig
 
 initCursor({ jelly });
 initClickJelly({ jelly, audioOn });
-initSoundUI({ bgm, layers: [jelly, coverJelly], spawnFromBottom });
+initSoundUI({ bgm, layers: [jelly, coverJelly, swarm], spawnFromBottom });
 initTheme({ sky });
 initFilmNav();
 initNav({ audioOn });
@@ -84,6 +88,7 @@ const setup = () => {
   // 这些 ScrollTrigger 在作品集的 pin 之后创建，位置才准确
   initRailway({ isSoundOn: audioOn });
   initNextJellies({ jelly });
+  initSwarm({ swarm });
 };
 playLoader(
   ready,

@@ -49,6 +49,7 @@ export const site = {
   // ---------- 第1話 自己紹介 ----------
   about: {
     hello: 'はじめまして、ユキです。',
+    chara: '/images/chara.webp', // ← 第1話第一格里、对话框后面的立绘（透明背景）
     narration: 'これは、ある夏の日から始まった小さな物語。',
     paragraphs: [
       // ← 自我介绍，每一段一个字符串
@@ -58,8 +59,8 @@ export const site = {
     ],
     profile: [
       // ← 角色档案
-      { k: '誕生日', en: 'BIRTHDAY', v: '8月31日' },
-      { k: '星座', en: 'ZODIAC', v: '処女座' },
+      { k: '誕生日', en: 'BIRTHDAY', v: '6月31日' },
+      { k: '星座', en: 'ZODIAC', v: '双子座' },
       { k: '職業', en: 'CLASS', v: '開発者 / 絵描き' },
       { k: '好物', en: 'FAVORITE', v: 'ラムネ・夕焼け' },
       { k: '苦手', en: 'WEAKNESS', v: '早起き' },
@@ -135,13 +136,12 @@ export const site = {
 
   // ---------- 読者はがき（联系方式） ----------
   contact: {
-    email: 'hello@example.com', // ← 改成你的邮箱（投函按钮会打开邮件客户端发到这里）
+    email: 'chaosnap@outlook.com', // 投函按钮会打开邮件客户端发到这里
     socials: [
       // ← 社交链接，不需要的删掉即可
-      { name: 'GitHub', handle: '@yuki', url: 'https://github.com/' },
-      { name: 'X', handle: '@yuki', url: 'https://x.com/' },
-      { name: 'bilibili', handle: 'ユキ', url: 'https://www.bilibili.com/' },
-      { name: 'pixiv', handle: 'yuki', url: 'https://www.pixiv.net/' },
+      { name: 'GitHub', handle: '@Chaosnap', url: 'https://github.com/Chaosnap' },
+      { name: 'bilibili', handle: 'UID 2087892128', url: 'https://space.bilibili.com/2087892128' },
+      { name: 'pixiv', handle: 'ID 51288817', url: 'https://www.pixiv.net/users/51288817' },
     ],
   },
 

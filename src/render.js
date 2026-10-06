@@ -188,7 +188,8 @@ function about() {
           <div class="scene-tone"></div>
           <div class="scene-fence">${fence('a')}</div>
           <p class="narration" lang="ja">${esc(a.narration)}</p>
-          <div class="speech" lang="ja">${bubble('br')}<span>${esc(a.hello)}</span></div>
+          ${a.chara ? `<img class="scene-chara" src="${esc(asset(a.chara))}" alt="" loading="lazy" decoding="async" onerror="this.remove()">` : ''}
+          <div class="speech" lang="ja">${bubble('bl')}<span>${esc(a.hello)}</span></div>
           <span class="sfx sfx-a" lang="ja">ザァ…</span>
         </div>
       </div>
@@ -312,26 +313,27 @@ function story() {
         <path class="tp ballast" fill="none"/>
         <path class="tp ties" fill="none"/>
         <rect class="rails" x="0" y="0" width="100%" height="100%" mask="url(#railMask)"/>
-        <path class="tp trail" fill="none" pathLength="1"/>
         <g class="poles"></g>
-        <g class="crossings"></g>
-        <g class="train">
-          ${[2, 1, 0]
-            .map(
-              (k) => `
-          <g class="car c${k}">
-            ${k === 0 ? `<path class="beam" d="M-10 30 L-46 190 L46 190 L10 30Z" fill="url(#beam)"/>` : ''}
-            <rect class="car-body" x="-13" y="-34" width="26" height="68" rx="${k === 0 ? 10 : 5}"/>
-            <rect class="car-stripe" x="-13" y="-34" width="3.5" height="68"/>
-            <rect class="car-stripe" x="9.5" y="-34" width="3.5" height="68"/>
-            <rect class="car-ac" x="-6" y="${k === 0 ? -22 : -8}" width="12" height="14" rx="2"/>
-            ${k === 0 ? `<path class="panto" d="M-9 14 L0 6 L9 14 L0 22Z"/><g class="sparks"><circle r="2"/><circle r="1.5"/><circle r="1.2"/><circle r="1.8"/></g>` : `<path class="car-line" d="M-6 14 H6 M-6 20 H6"/>`}
-            <g class="wind"><path d="M-22 -30 V0 M22 -26 V6 M-28 -10 V18 M28 -16 V12"/></g>
-          </g>`,
-            )
-            .join('')}
-        </g>
       </svg>
+      <!-- 会动的东西各自单独一层（只做合成，不重绘上面那张大 SVG） -->
+      <div class="trail-clip" aria-hidden="true"><svg class="track-trail"><path class="tp trail-glow" fill="none"/><path class="tp trail" fill="none"/></svg></div>
+      <div class="xings" aria-hidden="true"></div>
+      <div class="train-layer" aria-hidden="true">
+        ${[2, 1, 0]
+          .map(
+            (k) => `
+        <div class="car-el c${k}"><svg viewBox="-50 -40 100 236" width="100" height="236">
+          ${k === 0 ? `<path class="beam" d="M-10 30 L-46 190 L46 190 L10 30Z" fill="url(#beam)"/>` : ''}
+          <rect class="car-body" x="-13" y="-34" width="26" height="68" rx="${k === 0 ? 10 : 5}"/>
+          <rect class="car-stripe" x="-13" y="-34" width="3.5" height="68"/>
+          <rect class="car-stripe" x="9.5" y="-34" width="3.5" height="68"/>
+          <rect class="car-ac" x="-6" y="${k === 0 ? -22 : -8}" width="12" height="14" rx="2"/>
+          ${k === 0 ? `<path class="panto" d="M-9 14 L0 6 L9 14 L0 22Z"/><g class="sparks"><circle r="2"/><circle r="1.5"/><circle r="1.2"/><circle r="1.8"/></g>` : `<path class="car-line" d="M-6 14 H6 M-6 20 H6"/>`}
+          <g class="wind"><path d="M-22 -30 V0 M22 -26 V6 M-28 -10 V18 M28 -16 V12"/></g>
+        </svg></div>`,
+          )
+          .join('')}
+      </div>
       <ol class="stations">
         ${s
           .map(

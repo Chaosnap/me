@@ -77,7 +77,7 @@ export function poleScene() {
   const sign = `
     <g class="sign" transform="translate(1186 520)">
       <rect width="48" height="150" fill="var(--paper)" stroke="${ink}" stroke-width="3"/>
-      <text x="24" y="28" font-size="22" text-anchor="middle" fill="${ink}" font-family="var(--f-mincho)" writing-mode="tb">夏ノ町</text>
+      <text x="24" y="51" font-size="22" text-anchor="middle" fill="${ink}" font-family="var(--f-mincho)" writing-mode="tb">夏ノ町</text>
       <rect y="100" width="48" height="50" fill="${ink}"/>
       <text x="24" y="134" font-size="20" text-anchor="middle" fill="var(--paper)" font-family="var(--f-mono)">12</text>
     </g>`;

@@ -35,6 +35,24 @@ const PALETTE = {
     eye: 'rgba(255,255,255,0.9)',
     shadow: 'rgba(120,190,255,0.7)',
   },
+  // 简化版没有阴影光晕，夜间需要更亮一点的配色
+  glowLite: {
+    core: 'rgba(190,225,255,0.06)',
+    mid: 'rgba(180,220,255,0.16)',
+    edge: 'rgba(205,235,255,0.45)',
+    rimFill: 'rgba(235,248,255,0.75)',
+    rim: 'rgba(245,252,255,0.95)',
+    rimGlow: 'rgba(150,210,255,0.45)',
+    inner: 'rgba(205,235,255,0.45)',
+    canal: 'rgba(210,236,255,0.2)',
+    gon: 'rgba(242,214,255,0.9)',
+    gonFill: 'rgba(230,200,255,0.2)',
+    tent: 'rgba(210,238,255,0.5)',
+    arm: 'rgba(225,242,255,0.32)',
+    armEdge: 'rgba(240,250,255,0.4)',
+    eye: 'rgba(255,255,255,0.95)',
+    shadow: 'rgba(120,190,255,0.7)',
+  },
   day: {
     core: 'rgba(255,255,255,0.16)',
     mid: 'rgba(214,234,252,0.26)',
@@ -127,6 +145,7 @@ export function createJellyLayer(canvas, { fixed = true, max = 36, interactive =
       maxLife: o.life ?? rand(8, 12),
       alpha: o.alpha ?? 1,
       glow: o.glow,
+      lock: o.lock, // 锁定朝向（成群游动时保持斜向轨迹）
       seed: rand(0, 100),
       depth: o.depth ?? 1,
       push: { x: 0, y: 0 },
@@ -232,7 +251,7 @@ export function createJellyLayer(canvas, { fixed = true, max = 36, interactive =
 
   function drawJelly(j, c, env) {
     const glow = j.glow ?? isNight();
-    const P = glow ? PALETTE.glow : PALETTE.day;
+    const P = glow ? (lite ? PALETTE.glowLite : PALETTE.glow) : PALETTE.day;
     const r = j.r,
       s = j.depth;
     const bw = r * (1 - 0.17 * c);
@@ -379,7 +398,8 @@ export function createJellyLayer(canvas, { fixed = true, max = 36, interactive =
       const c = pulseCurve(j.phase) * (1 + beat * 0.5);
       // 收缩时推进
       const sp = j.base + j.boost * c * c;
-      j.ang += (Math.sin(t * 0.3 + j.seed) * 0.0014 - j.ang * 0.002) * f;
+      if (j.lock) j.ang += Math.sin(t * 0.8 + j.seed) * 0.0009 * f;
+      else j.ang += (Math.sin(t * 0.3 + j.seed) * 0.0014 - j.ang * 0.002) * f;
       if (interactive) {
         const dx = j.x - pointer.x,
           dy = j.y - pointer.y;
@@ -504,6 +524,8 @@ export function createJellyLayer(canvas, { fixed = true, max = 36, interactive =
     ripple,
     ambient,
     setBeat: (v) => (beat = v),
+    count: () => jellies.length,
+    _peek: () => jellies.map((j) => [Math.round(j.x), Math.round(j.y)]),
     size: () => ({ W, H }),
   };
 }

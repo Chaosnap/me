@@ -715,12 +715,72 @@ html.has-cursor #cursor {
 .rails {
   fill: var(--ink);
 }
+/* 会动的图层：只改 transform / 裁剪高度，由 GPU 合成 */
+.trail-clip {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+.track-trail {
+  position: absolute;
+  left: 0;
+  top: 0;
+  overflow: visible;
+  will-change: transform;
+}
 .trail {
   stroke: var(--red);
   stroke-width: 3;
-  stroke-dasharray: 1;
-  stroke-dashoffset: 1;
-  filter: drop-shadow(0 0 4px var(--red));
+}
+.trail-glow {
+  stroke: var(--red);
+  stroke-width: 10;
+  opacity: 0.16;
+}
+.xings {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+}
+.xing {
+  position: absolute;
+  left: -24px;
+  top: -18px;
+  width: 48px;
+  height: 36px;
+}
+.xing svg {
+  overflow: visible;
+}
+.train-layer {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 0;
+  height: 0;
+  z-index: 1;
+  pointer-events: none;
+}
+.car-el {
+  position: absolute;
+  left: -50px;
+  top: -40px;
+  width: 100px;
+  height: 236px;
+  transform-origin: 50px 40px;
+  will-change: transform;
+  filter: drop-shadow(4px 7px 0 rgba(0, 0, 0, 0.16));
+  transition: opacity 0.3s;
+}
+.car-el svg {
+  overflow: visible;
 }
 .overhead {
   fill: none;
@@ -739,12 +799,6 @@ html.has-cursor #cursor {
   fill: var(--paper);
   stroke: var(--ink);
   stroke-width: 2;
-}
-.train {
-  filter: drop-shadow(4px 7px 0 rgba(0, 0, 0, 0.16));
-}
-.car {
-  transition: opacity 0.3s;
 }
 .car-body {
   fill: #f7f5f0;
@@ -819,11 +873,12 @@ html.has-cursor #cursor {
 }
 
 .station-sign {
-  transition: box-shadow 0.45s, translate 0.45s var(--ease-out);
+  transition: translate 0.45s var(--ease-out);
+  backface-visibility: hidden;
 }
 .station.is-arrived .station-sign {
   translate: 0 -4px;
-  box-shadow: 0 10px 0 -4px var(--paper-3), 0 10px 0 -2px #15171d, 0 0 0 3px var(--red), 0 0 46px rgba(255, 90, 90, 0.35);
+  box-shadow: 0 10px 0 -4px var(--paper-3), 0 10px 0 -2px #15171d, 0 0 0 3px var(--red), 0 0 18px rgba(255, 90, 90, 0.3);
 }
 .ss-arrive {
   position: absolute;
