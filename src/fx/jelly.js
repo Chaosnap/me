@@ -130,7 +130,7 @@ export function createJellyLayer(canvas, { fixed = true, max = 36, interactive =
 
   function spawn(x, y, o = {}) {
     const r = o.r ?? rand(22, 40);
-    const nt = lite ? Math.round(rand(9, 13)) : Math.round(rand(30, 42));
+    const nt = o.tents ?? (lite ? Math.round(rand(9, 13)) : Math.round(rand(30, 42)));
     const j = {
       x,
       y,
@@ -210,8 +210,8 @@ export function createJellyLayer(canvas, { fixed = true, max = 36, interactive =
   }
 
   /* ---------------- 绘制 ---------------- */
-  function smooth(pts) {
-    ctx.beginPath();
+  function smooth(pts, append = false) {
+    if (!append) ctx.beginPath();
     ctx.moveTo(pts[0].x, pts[0].y);
     for (let i = 1; i < pts.length - 1; i++) {
       const mx = (pts[i].x + pts[i + 1].x) / 2,
@@ -273,17 +273,16 @@ export function createJellyLayer(canvas, { fixed = true, max = 36, interactive =
     ctx.lineCap = 'round';
     ctx.strokeStyle = P.tent;
     ctx.lineWidth = Math.max(0.5, 0.75 * s);
-    for (const tn of j.tents) {
-      smooth(tn.pts);
-      ctx.stroke();
-    }
+    // 同一只的触手颜色线宽都一样：合成一条路径一次描边（数量多时省很多）
+    ctx.beginPath();
+    for (const tn of j.tents) smooth(tn.pts, true);
+    ctx.stroke();
     if (lite) {
       ctx.strokeStyle = P.arm;
       ctx.lineWidth = j.r * s * 0.07;
-      for (const arm of j.arms) {
-        smooth(arm.pts);
-        ctx.stroke();
-      }
+      ctx.beginPath();
+      for (const arm of j.arms) smooth(arm.pts, true);
+      ctx.stroke();
     } else for (const arm of j.arms) drawArm(arm, s, P, j);
 
     // 伞（局部坐标）
@@ -349,15 +348,21 @@ export function createJellyLayer(canvas, { fixed = true, max = 36, interactive =
     ctx.stroke();
     }
 
-    // 四叶生殖腺
+    // 四叶生殖腺（一条路径；太小的远景水母画个模糊的影子就够）
+    ctx.beginPath();
     for (let k = 0; k < 4; k++) {
       const a = k * (Math.PI / 2) + Math.PI / 4;
       const gx = Math.cos(a) * r * 0.17;
       const gy = cy + Math.sin(a) * r * 0.1;
-      ctx.beginPath();
+      // 先移到弧线起点（椭圆自身坐标 (rx·cos0.55, ry·sin0.55) 再旋转 a），避免多出一条连线
+      const lx = r * 0.11 * Math.cos(0.55),
+        ly = r * 0.065 * Math.sin(0.55);
+      ctx.moveTo(gx + lx * Math.cos(a) - ly * Math.sin(a), gy + lx * Math.sin(a) + ly * Math.cos(a));
       ctx.ellipse(gx, gy, r * 0.11, r * 0.065, a, 0.55, TAU - 0.55);
-      ctx.fillStyle = P.gonFill;
-      ctx.fill();
+    }
+    ctx.fillStyle = P.gonFill;
+    ctx.fill();
+    if (r * s > 12) {
       ctx.strokeStyle = P.gon;
       ctx.lineWidth = r * 0.03;
       ctx.stroke();
@@ -416,7 +421,7 @@ export function createJellyLayer(canvas, { fixed = true, max = 36, interactive =
       avy = 0,
       n = 0;
     for (const o of jellies) {
-      if (o === j || !o.boid || o.boid.g !== B.g) continue;
+      if (o === j || !o.boid || o.boid.g !== B.g || Math.abs(o.depth - j.depth) > 0.2) continue;
       const dx = j.x - o.x,
         dy = j.y - o.y;
       const d2 = dx * dx + dy * dy;
@@ -468,11 +473,15 @@ export function createJellyLayer(canvas, { fixed = true, max = 36, interactive =
   }
 
   const minDt = 1000 / fps - 2;
+  let cost = 0; // 每帧 JS 耗时（ms，指数平均）
+  let gap = 16.7; // 实际帧间隔（ms，指数平均）
   function loop(now) {
     if (now - last < minDt) {
       requestAnimationFrame(loop);
       return;
     }
+    gap += (Math.min(100, now - last) - gap) * 0.1;
+    const t0 = performance.now();
     const dt = Math.min(0.05, (now - last) / 1000);
     last = now;
     t += dt;
@@ -565,6 +574,7 @@ export function createJellyLayer(canvas, { fixed = true, max = 36, interactive =
       ctx.stroke();
     }
     ctx.globalAlpha = 1;
+    cost += (performance.now() - t0 - cost) * 0.1;
 
     if ((jellies.length || bubbles.length || ripples.length || ambientOn) && (visible || fixed)) requestAnimationFrame(loop);
     else {
@@ -608,6 +618,7 @@ export function createJellyLayer(canvas, { fixed = true, max = 36, interactive =
     ambient,
     setBeat: (v) => (beat = v),
     count: () => jellies.length,
+    perf: () => ({ cost, gap, running }),
     _peek: () => jellies.map((j) => [Math.round(j.x), Math.round(j.y)]),
     size: () => ({ W, H }),
   };

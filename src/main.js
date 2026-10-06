@@ -50,7 +50,7 @@ const cover = document.getElementById('cover');
 const jelly = createJellyLayer(document.getElementById('fx-canvas'), { fixed: true, max: 40 });
 // 封面：简化版水母（30fps、1x 分辨率），揭幕后才开始
 // 表紙 → 目次 的水母群：独立一层，简化画法、1x 分辨率
-const swarm = createJellyLayer(document.getElementById('swarm-canvas'), { fixed: true, max: 34, lite: true, dpr: 1 });
+const swarm = createJellyLayer(document.getElementById('swarm-canvas'), { fixed: true, max: 140, lite: true, dpr: 1 });
 if (import.meta.env.DEV) window.__swarm = swarm;
 const coverJelly = createJellyLayer(cover.querySelector('.cover-jelly'), { fixed: false, max: 5, interactive: true, lite: true, fps: 30, dpr: 1 });
 const startCoverJellies = () =>

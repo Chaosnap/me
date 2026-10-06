@@ -145,35 +145,29 @@ ul {
   position: fixed;
   inset: 0;
   z-index: 1000;
-  background: #0c141d;
+  /* 中心微亮、四角压暗 */
+  background: radial-gradient(120% 95% at 50% 45%, #10202d 0%, #0c141d 52%, #070b11 100%);
   color: #e9ecef;
   display: grid;
   place-items: center;
   overflow: hidden;
 }
-.ld-bokeh i {
+.ld-bokeh {
   position: absolute;
-  border-radius: 50%;
-  background: radial-gradient(circle, rgba(70, 190, 200, 0.55), rgba(70, 190, 200, 0) 68%);
-  animation: bokeh 7s ease-in-out infinite alternate;
-  mix-blend-mode: screen;
-}
-.ld-bokeh i:nth-child(1) { width: 26vmin; height: 26vmin; left: 30%; top: 22%; }
-.ld-bokeh i:nth-child(2) { width: 14vmin; height: 14vmin; left: 38%; top: 40%; animation-delay: -2s; opacity: 0.7; }
-.ld-bokeh i:nth-child(3) { width: 34vmin; height: 34vmin; left: 62%; top: 52%; animation-delay: -4s; opacity: 0.35; background: radial-gradient(circle, rgba(140, 160, 230, 0.4), transparent 68%); }
-.ld-bokeh i:nth-child(4) { width: 8vmin; height: 8vmin; left: 20%; top: 66%; animation-delay: -1s; }
-.ld-bokeh i:nth-child(5) { width: 18vmin; height: 18vmin; left: 74%; top: 18%; animation-delay: -3s; opacity: 0.5; background: radial-gradient(circle, rgba(255, 180, 130, 0.35), transparent 68%); }
-.ld-bokeh i:nth-child(6) { width: 11vmin; height: 11vmin; left: 52%; top: 76%; animation-delay: -5s; opacity: 0.6; }
-@keyframes bokeh {
-  to { transform: translate3d(4vmin, -3vmin, 0) scale(1.15); }
+  inset: 0;
+  width: 100%;
+  height: 100%;
 }
 .ld-text {
   position: relative;
   writing-mode: vertical-rl;
   font-family: var(--f-mincho);
-  font-size: clamp(18px, 2.2vw, 28px);
-  letter-spacing: 0.5em;
-  min-height: 12em;
+  font-size: clamp(22px, min(4.6vh, 3.6vw), 50px);
+  letter-spacing: 0.42em;
+  /* 竖排时最后一个字后面也有字距，往回补，才是真正的正中 */
+  margin-bottom: -0.42em;
+  line-height: 1;
+  text-shadow: 0 0 18px rgba(140, 220, 230, 0.35), 0 0 2px rgba(255, 255, 255, 0.4);
 }
 .ld-text .ch {
   display: inline-block;
@@ -538,5 +532,5 @@ ul {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .grain, .leaks i, .ld-bokeh i { animation: none !important; }
+  .grain, .leaks i { animation: none !important; }
 }

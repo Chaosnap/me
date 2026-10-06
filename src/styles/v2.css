@@ -64,7 +64,7 @@
   top: 4px;
   bottom: 4px;
   background: #3a2a1e center / cover no-repeat;
-  filter: grayscale(1) sepia(0.35) brightness(0.5);
+  filter: grayscale(0.92) sepia(0.5) brightness(0.52) contrast(0.92);
   box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.6);
   transition: filter 0.45s var(--ease), box-shadow 0.45s;
 }
@@ -112,21 +112,123 @@
   font-size: 10px;
   letter-spacing: 0.15em;
 }
-.fn-gate {
-  position: absolute;
-  left: 9px;
-  right: 9px;
+/* ============ 放映机片门：曝光中的那一帧 ============ */
+.fn-lens {
+  position: fixed;
+  z-index: 67;
   top: 50%;
-  height: 34px;
-  translate: 0 -50%;
+  right: calc(var(--frame) + 6px);
+  width: 66px;
+  height: 0;
   pointer-events: none;
-  border: 1px solid rgba(255, 248, 232, 0.7);
-  box-shadow: 0 0 calc(18px + var(--beat, 0) * 26px) rgba(255, 236, 200, calc(0.3 + var(--beat, 0) * 0.4)), inset 0 0 10px rgba(255, 236, 200, 0.25);
+}
+.fn-lens > * {
+  position: absolute;
+  left: 50%;
+  top: 0;
+}
+/* 投影灯的光：左淡蓝、右粉紫，溢出胶片 */
+.fl-glow {
+  width: 150px;
+  height: 92px;
+  translate: -50% -50%;
+  background: radial-gradient(closest-side at 32% 50%, rgba(120, 200, 255, calc(0.38 + var(--beat, 0) * 0.3)), transparent),
+    radial-gradient(closest-side at 68% 50%, rgba(214, 150, 255, calc(0.34 + var(--beat, 0) * 0.3)), transparent),
+    radial-gradient(closest-side, rgba(255, 244, 226, 0.22), transparent);
+  mix-blend-mode: screen;
+  animation: lampFlicker 3.2s steps(1) infinite;
+}
+@keyframes lampFlicker {
+  0%, 100% { opacity: 1; }
+  12% { opacity: 0.86; }
+  14% { opacity: 1; }
+  47% { opacity: 0.93; }
+  49% { opacity: 1; }
+  78% { opacity: 0.88; }
+  80% { opacity: 1; }
+}
+/* 取景线：一条细线横穿片门，两端带刻度 */
+.fl-line {
+  width: 112px;
+  height: 1px;
+  translate: -50% -50%;
+  background: linear-gradient(90deg, transparent, rgba(255, 248, 232, 0.75) 12%, rgba(255, 248, 232, 0.75) 22%, transparent 27%, transparent 73%, rgba(255, 248, 232, 0.75) 78%, rgba(255, 248, 232, 0.75) 88%, transparent);
+}
+.fl-line::before,
+.fl-line::after {
+  content: '';
+  position: absolute;
+  top: -3px;
+  width: 1px;
+  height: 7px;
+  background: rgba(255, 248, 232, 0.8);
+}
+.fl-line::before { left: 14px; }
+.fl-line::after { right: 14px; }
+/* 曝光帧：普通画格的约 1.5 倍，左右略微溢出胶片 */
+.fl-frame {
+  width: 60px;
+  height: 43px;
+  transform: translate(-50%, -50%);
+  overflow: hidden;
+  border-radius: 1px;
+  background: #1a120c;
+  box-shadow: 0 0 0 1.5px #fff8e8, -8px 0 16px -3px rgba(120, 200, 255, 0.75), 8px 0 16px -3px rgba(214, 150, 255, 0.7), 0 0 calc(10px + var(--beat, 0) * 22px) rgba(255, 240, 220, 0.4);
+  will-change: transform, opacity;
+  animation: gateWeave 0.42s steps(2) infinite;
+}
+/* 放映时画面的轻微抖动 */
+@keyframes gateWeave {
+  0% { translate: 0 0; }
+  50% { translate: 0 0.4px; }
+}
+.fl-img {
+  position: absolute;
+  inset: 0;
+  background: center / cover no-repeat;
+  filter: saturate(1.2) brightness(1.08) contrast(1.05);
+  opacity: 0;
+  scale: 1.12;
+  transition: opacity 0.35s, scale 0.6s var(--ease-out);
+}
+.fl-img.is-on {
+  opacity: 1;
+  scale: 1;
+}
+/* 光从两侧打进来的色晕 */
+.fl-sheen {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, rgba(120, 200, 255, 0.35), transparent 30%, transparent 70%, rgba(214, 150, 255, 0.35));
+  mix-blend-mode: screen;
+}
+.fl-no {
+  position: absolute;
+  left: 3px;
+  bottom: 2px;
+  font-family: var(--f-mono);
+  font-size: 7px;
+  font-weight: 400;
+  line-height: 1;
+  color: #f4a63e;
+  text-shadow: 0 0 2px #000;
+}
+/* 取景框的四角 */
+.fl-bracket {
+  width: 72px;
+  height: 55px;
+  translate: -50% -50%;
+  --c: rgba(255, 248, 232, 0.85);
+  background: linear-gradient(var(--c), var(--c)) 0 0 / 7px 1px, linear-gradient(var(--c), var(--c)) 0 0 / 1px 7px,
+    linear-gradient(var(--c), var(--c)) 100% 0 / 7px 1px, linear-gradient(var(--c), var(--c)) 100% 0 / 1px 7px,
+    linear-gradient(var(--c), var(--c)) 0 100% / 7px 1px, linear-gradient(var(--c), var(--c)) 0 100% / 1px 7px,
+    linear-gradient(var(--c), var(--c)) 100% 100% / 7px 1px, linear-gradient(var(--c), var(--c)) 100% 100% / 1px 7px;
+  background-repeat: no-repeat;
 }
 .fn-caption {
   position: fixed;
   z-index: 66;
-  right: calc(var(--frame) + 80px);
+  right: calc(var(--frame) + 100px);
   top: 50%;
   translate: 0 -50%;
   font-family: var(--f-gothic);
@@ -137,7 +239,6 @@
   background: var(--ink);
   color: var(--paper);
   pointer-events: none;
-  transition: opacity 0.4s;
 }
 .fn-caption::after {
   content: '';
@@ -920,8 +1021,21 @@ html.has-cursor #cursor {
 }
 
 .station-sign {
+  transform-origin: 50% 0;
+  transform: perspective(900px) rotateX(calc(var(--flip, 0) * -90deg));
   transition: translate 0.45s var(--ease-out);
   backface-visibility: hidden;
+  will-change: transform;
+}
+/* 翻折时背光：越接近水平越暗，翻正后完全透明 */
+.station-sign::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  pointer-events: none;
+  background: linear-gradient(to bottom, rgba(10, 14, 22, 0.25), rgba(10, 14, 22, 0.75));
+  opacity: calc(var(--flip, 0) * 1.4 - 0.1);
 }
 .station.is-arrived .station-sign {
   translate: 0 -4px;
@@ -1045,6 +1159,7 @@ html.has-cursor #cursor {
 /* ============ 响应式 ============ */
 @media (max-width: 900px) {
   .filmnav,
+  .fn-lens,
   .fn-caption {
     display: none;
   }
@@ -1236,4 +1351,49 @@ html.has-cursor #cursor {
   .md-body::after {
     display: none;
   }
+}
+
+/* ============ 翻页时浮上来的透明泡泡 ============ */
+.pt-bubbles {
+  position: fixed;
+  inset: 0;
+  z-index: 96;
+  pointer-events: none;
+  overflow: hidden;
+}
+.ptb {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: var(--s);
+  height: var(--s);
+  margin: calc(var(--s) / -2) 0 0 calc(var(--s) / -2);
+  border-radius: 50%;
+  background: radial-gradient(circle at 50% 50%, transparent 58%, rgba(170, 215, 255, 0.14) 80%, rgba(255, 255, 255, 0.42) 100%);
+  box-shadow: 0 0 0 0.6px rgba(14, 34, 62, 0.35), inset 0 0 calc(var(--s) * 0.14) rgba(255, 255, 255, 0.3);
+  will-change: transform, opacity;
+}
+/* 彩虹膜 */
+.ptb::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: conic-gradient(from var(--hue), #8fd3ff, #b9a6ff, #ffa9d3, #ffe3a3, #a8ffd8, #8fd3ff);
+  -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 2px), #000 calc(100% - 1.2px));
+  mask: radial-gradient(farthest-side, transparent calc(100% - 2px), #000 calc(100% - 1.2px));
+  opacity: 0.75;
+}
+/* 高光 */
+.ptb::after {
+  content: '';
+  position: absolute;
+  left: 17%;
+  top: 13%;
+  width: 46%;
+  height: 46%;
+  border-radius: 50%;
+  border-top: max(1.2px, calc(var(--s) * 0.05)) solid rgba(255, 255, 255, 0.92);
+  border-left: 1px solid rgba(255, 255, 255, 0.5);
+  rotate: -18deg;
 }

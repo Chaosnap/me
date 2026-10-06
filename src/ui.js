@@ -4,7 +4,7 @@ import { chapters, workDetail } from './render.js';
 import { site } from './content.js';
 import { speedLines } from './art.js';
 import { sound, pageTurn, chime, blip } from './fx/sound.js';
-import { lenis, reduceMotion } from './anim.js';
+import { lenis, reduceMotion, KANA } from './anim.js';
 
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
@@ -167,6 +167,10 @@ export function initFilmNav() {
   const nav = $('#filmnav');
   const reel = $('.fn-reel', nav);
   const frames = $$('.fn-frame:not(.fn-leader)', reel);
+  const lens = $('.fn-lens');
+  const lensFrame = $('.fl-frame', lens);
+  const imgs = $$('.fl-img', lens);
+  const lensNo = $('.fl-no', lens);
   const caption = document.createElement('div');
   caption.className = 'fn-caption';
   caption.setAttribute('aria-hidden', 'true');
@@ -176,7 +180,35 @@ export function initFilmNav() {
   const measure = () => (tops = secs.map((s) => s.getBoundingClientRect().top + scrollY));
   measure();
   ScrollTrigger.addEventListener('refresh', measure);
+
+  // 片门里换片：两层图交叉淡入，标题用乱码滚动
+  let exposed = -1;
+  let front = 0;
+  const expose = (i) => {
+    if (i === exposed) return;
+    exposed = i;
+    frames.forEach((f, k) => f.classList.toggle('is-active', k === i));
+    const c = chapters[i];
+    const img = $('.fn-img', frames[i]).style.backgroundImage;
+    front = 1 - front;
+    imgs[front].style.backgroundImage = img;
+    imgs[front].classList.add('is-on');
+    imgs[1 - front].classList.remove('is-on');
+    lensNo.textContent = $('.fn-no', frames[i]).textContent;
+    const label = c.no ? `第${c.no}話 ${c.ja}` : c.ja;
+    gsap.to(caption, { duration: 0.6, scrambleText: { text: label, chars: KANA, speed: 0.8 } });
+  };
+
+  // 间歇送片：一节里大部分时间这一帧停在片门正中，快到下一节时才快速拉到下一帧
+  const smooth = (u) => u * u * (3 - 2 * u);
+  const pull = (f) => {
+    const k = Math.round(f);
+    const u = Math.min(1, Math.max(0, (f - k) / 0.3 + 0.5));
+    return k - 0.5 + smooth(u);
+  };
+
   let y = null;
+  let lastEx = -1;
   gsap.ticker.add(() => {
     if (!frames.length || innerWidth <= 900) return;
     const anchor = scrollY + innerHeight * 0.45;
@@ -185,11 +217,23 @@ export function initFilmNav() {
     const next = tops[i + 1] ?? document.documentElement.scrollHeight;
     const f = i + Math.min(1, Math.max(0, (anchor - tops[i]) / Math.max(1, next - tops[i])));
     const pitch = frames[0].offsetHeight;
-    const target = innerHeight / 2 - (frames[0].offsetTop + f * pitch);
-    const ny = y === null ? target : y + (target - y) * 0.12; // 第一帧直接就位，不从屏幕中间滑上去
+    const target = innerHeight / 2 - (frames[0].offsetTop + pull(f) * pitch);
+    const ny = y === null ? target : y + (target - y) * 0.14; // 第一帧直接就位
     if (Math.abs(ny - y) < 0.05) return;
     y = ny;
     reel.style.transform = `translate3d(0,${y.toFixed(1)}px,0)`;
+
+    // 片门压着哪一帧，就曝光哪一帧；送片途中（帧没对正）快门半闭，片门变暗
+    const pos = (innerHeight / 2 - y - frames[0].offsetTop) / pitch;
+    const idx = Math.min(frames.length - 1, Math.max(0, Math.floor(pos)));
+    expose(idx);
+    const off = Math.min(1, Math.abs(pos - idx - 0.5) * 2); // 0 = 正中，1 = 帧边
+    const ex = Math.round((1 - off * off) * 50) / 50;
+    if (ex !== lastEx) {
+      lastEx = ex;
+      lensFrame.style.opacity = (0.18 + 0.82 * ex).toFixed(2);
+      lensFrame.style.transform = `translate(-50%,-50%) scale(${(0.86 + 0.14 * ex).toFixed(3)})`;
+    }
   });
   return { caption };
 }
@@ -203,6 +247,36 @@ export function initNav({ audioOn }) {
   document.body.appendChild(turn);
   let busy = false;
 
+  // 翻页时一串透明泡泡浮上来（只动 transform / opacity，交给合成层）
+  const bubbles = document.createElement('div');
+  bubbles.className = 'pt-bubbles';
+  bubbles.setAttribute('aria-hidden', 'true');
+  document.body.appendChild(bubbles);
+  const bubbleUp = () => {
+    const W = innerWidth,
+      H = innerHeight;
+    const n = W < 700 ? 16 : 30;
+    for (let i = 0; i < n; i++) {
+      const el = document.createElement('i');
+      const big = Math.random() < 0.25;
+      const size = big ? rand(34, 70) : rand(8, 30);
+      el.className = 'ptb';
+      el.style.setProperty('--s', `${size.toFixed(0)}px`);
+      el.style.setProperty('--hue', `${rand(0, 360).toFixed(0)}deg`);
+      bubbles.appendChild(el);
+      const dur = rand(1.3, 2.3) * (big ? 1.15 : 1);
+      const x0 = W * rand(0.02, 0.98);
+      gsap.set(el, { x: x0, y: H + size, scale: rand(0.5, 0.8), opacity: 0 });
+      gsap
+        .timeline({ delay: rand(0, 0.7), onComplete: () => el.remove() })
+        .to(el, { opacity: rand(0.75, 1), duration: 0.25 }, 0)
+        .to(el, { y: -size * 2 - H * rand(0, 0.15), duration: dur, ease: 'power1.in' }, 0)
+        .to(el, { x: x0 + rand(-70, 70), duration: dur, ease: 'sine.inOut' }, 0)
+        .to(el, { scale: 1, duration: dur * 0.6, ease: 'sine.out' }, 0)
+        .to(el, { opacity: 0, duration: 0.35 }, dur - 0.35);
+    }
+  };
+
   const go = (id) => {
     const target = document.getElementById(id);
     if (!target) return;
@@ -215,6 +289,7 @@ export function initNav({ audioOn }) {
     if (busy) return;
     busy = true;
     if (audioOn()) pageTurn();
+    bubbleUp();
     $('.pt-no', turn).textContent = `P.${String(c.page).padStart(3, '0')}`;
     $('.pt-title', turn).textContent = c.no ? `第${c.no}話 ${c.ja}` : c.ja;
     $('.pt-en', turn).textContent = c.en;
@@ -324,7 +399,7 @@ export function initSoundUI({ bgm, layers, spawnFromBottom }) {
 
   // HUD 的 EQ + --beat（只写到胶卷取景框上，不写 :root）
   let beat = 0;
-  const gate = $('.fn-gate');
+  const gate = $('.fn-lens');
   gsap.ticker.add(() => {
     if (!bgm.playing && beat < 0.001) return;
     const b = bgm.bands(5);
@@ -495,7 +570,8 @@ export function initParallax({ sky }) {
 
 /* ---------- 表紙 → 目次：水母群（boids）从底部两侧浮上来 ----------
  * 「倒梯形两条斜边」只是两群的大方向：每只的出生位置、时间、大小、速度、初始朝向都随机，
- * 之后由 boids（分离 / 对齐 / 聚合）+ 各自的随机游走决定轨迹，所以每次都不一样。 */
+ * 之后由 boids（分离 / 对齐 / 聚合）+ 各自的随机游走决定轨迹，所以每次都不一样。
+ * 数量按屏幕定上限，生成时实时看帧耗时：设备吃不消就不再加。 */
 export function initSwarm({ swarm }) {
   if (reduceMotion) return;
   let lastAt = -1e9;
@@ -506,31 +582,34 @@ export function initSwarm({ swarm }) {
     const W = innerWidth,
       H = innerHeight;
     const tilt = Math.atan((0.27 * W) / H);
-    const per = W < 700 ? 8 : 14;
+    const per = W < 700 ? 18 : W < 1200 ? 34 : 44;
+    const busy = () => {
+      const p = swarm.perf();
+      return p.running && (p.cost > 6 || p.gap > 28);
+    };
     [-1, 1].forEach((side, g) => {
       for (let i = 0; i < per; i++) {
-        const near = Math.random() < 0.5;
-        // 群体大方向在 ±0.22rad 内随机偏一点
-        const a = side * tilt + rand(-0.22, 0.22);
-        const dx = Math.sin(a),
-          dy = -Math.cos(a);
-        const v = near ? rand(1.9, 2.9) : rand(1.1, 1.8);
-        setTimeout(
-          () =>
-            swarm.spawn(W * (0.5 + side * rand(0.06, 0.38)), H + rand(20, 320), {
-              ang: a + rand(-0.4, 0.4),
-              r: near ? rand(24, 44) : rand(10, 20),
-              depth: near ? rand(0.92, 1.1) : rand(0.7, 0.85),
-              alpha: near ? rand(0.85, 1) : rand(0.4, 0.65),
-              life: rand(7, 9.5),
-              boid: { g, dx, dy, min: v * 0.55, max: v * 1.15 },
-            }),
-          rand(0, 1800),
-        );
+        // 三层景深：近（大、快、清楚）/ 中 / 远（小、慢、淡、触手少）
+        const k = Math.random();
+        const layer = k < 0.25 ? 0 : k < 0.65 ? 1 : 2;
+        const a = side * tilt + rand(-0.22, 0.22); // 群体大方向上随机偏一点
+        const v = [rand(1.9, 2.9), rand(1.4, 2.1), rand(0.9, 1.4)][layer];
+        const o = {
+          ang: a + rand(-0.4, 0.4),
+          r: [rand(26, 46), rand(16, 26), rand(8, 15)][layer],
+          depth: [rand(0.95, 1.1), rand(0.84, 0.94), rand(0.7, 0.8)][layer],
+          alpha: [rand(0.85, 1), rand(0.6, 0.8), rand(0.35, 0.55)][layer],
+          tents: layer === 2 ? Math.round(rand(6, 8)) : undefined,
+          life: rand(7, 10),
+          boid: { g, dx: Math.sin(a), dy: -Math.cos(a), min: v * 0.55, max: v * 1.15 },
+        };
+        const x = W * (0.5 + side * rand(0.04, 0.42));
+        const y = H + rand(20, 420);
+        setTimeout(() => !busy() && swarm.spawn(x, y, o), rand(0, 2600));
       }
     });
     // 中间一串小气泡
-    for (let i = 0; i < 26; i++) setTimeout(() => swarm.bubble(W * rand(0.42, 0.58), H + rand(0, 40), { r: rand(1.5, 4.5) }), rand(0, 1800));
+    for (let i = 0; i < 40; i++) setTimeout(() => swarm.bubble(W * rand(0.38, 0.62), H + rand(0, 40), { r: rand(1.5, 5) }), rand(0, 2400));
   };
   ScrollTrigger.create({
     trigger: '#contents',

@@ -1,5 +1,6 @@
 import gsap from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
+import { initLoaderBokeh } from './fx/bokeh.js';
 import { ScrambleTextPlugin } from 'gsap/ScrambleTextPlugin';
 import Lenis from 'lenis';
 import { chapters, TOTAL_PAGES } from './render.js';
@@ -9,7 +10,7 @@ gsap.registerPlugin(ScrollTrigger, ScrambleTextPlugin);
 export const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
 // 揭幕动画结束后清掉 GSAP 写入的行内 transform，交还给 CSS（hover 效果才能生效）
 const CLEAR = 'transform,translate,rotate,scale';
-const KANA = 'アイウエオカキクケコサシスセソタチツテトナニヌネノハヒフヘホマミムメモヤユヨラリルレロワヲン';
+export const KANA = 'アイウエオカキクケコサシスセソタチツテトナニヌネノハヒフヘホマミムメモヤユヨラリルレロワヲン';
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
 
@@ -34,6 +35,7 @@ export function initScroll() {
 /* ---------------- Loader → 表紙 ---------------- */
 export function playLoader(ready, onDone, setup) {
   const loader = $('#loader');
+  const bokeh = initLoaderBokeh($('.ld-bokeh', loader), { still: reduceMotion });
   const text = $('.ld-text', loader);
   text.innerHTML = [...text.textContent].map((c) => `<span class="ch">${c}</span>`).join('');
   const num = $('.ld-num', loader);
@@ -81,6 +83,7 @@ export function playLoader(ready, onDone, setup) {
       .to('.ld-flash', { opacity: 1, duration: 0.35, ease: 'power2.in' }, '-=0.1')
       .add(() => {
         loader.style.background = 'transparent';
+        bokeh.stop();
         $$('.ld-bokeh, .ld-text', loader).forEach((n) => n.remove());
         onDone && onDone();
       })
@@ -113,7 +116,8 @@ export function coverIntro() {
     .from('.cover-burst', { scale: 0, rotate: 180, duration: 0.9, ease: 'back.out(2)' }, 1.2)
     .from('.cover-barcode, .cover-top, .scroll-hint', { opacity: 0, y: 10, duration: 0.8, stagger: 0.1 }, 1.0)
     .from('.filmnav', { xPercent: 140, duration: 1.1, ease: 'expo.out' }, 0.9)
-    .from('.fn-caption', { opacity: 0, duration: 0.6 }, 1.6);
+    .from('.fn-lens', { opacity: 0, duration: 0.8 }, 1.4)
+    .fromTo('.fn-caption', { opacity: 0 }, { opacity: 1, duration: 0.6 }, 1.6);
   // 天数从 0 数上来
   const num = $('.cc-num b');
   if (num) {
@@ -287,10 +291,10 @@ export function initAnimations({ sky }) {
       },
     });
     $$('.station').forEach((st) => {
-      gsap.timeline({ scrollTrigger: { trigger: st, start: 'top 80%' } })
-        // 站牌像挂牌一样翻下来：一次回弹，比 elastic 更顺；结束后交还 transform（到站时的上浮才不会被覆盖）
-        .from($('.station-sign', st), { rotateX: -82, transformOrigin: '50% 0%', transformPerspective: 900, duration: 0.95, ease: 'back.out(1.5)', force3D: true, clearProps: CLEAR })
-        .from($('.station-text', st), { y: 20, opacity: 0, duration: 0.6 }, 0.3);
+      // 站牌绕上沿从里往外翻下来：跟着滚动连续推进（scrub 带阻尼），不是触发后一口气播完。
+      // 只改 .station 上的 --flip，旋转写在 CSS 里 → 不碰站牌自己的 transform，到站时的上浮也不会被覆盖
+      gsap.fromTo(st, { '--flip': 1 }, { '--flip': 0, ease: 'power1.out', scrollTrigger: { trigger: st, start: 'top 98%', end: 'top 56%', scrub: 0.7 } });
+      gsap.from($('.station-text', st), { y: 20, opacity: 0, duration: 0.6, scrollTrigger: { trigger: st, start: 'top 72%' } });
     });
   }
 
@@ -325,18 +329,15 @@ export function initAnimations({ sky }) {
     .from('.okuzuke', { y: 40, opacity: 0, duration: 0.8 }, 0.4);
 
   // ---- 章节追踪：付箋 / HUD / ノンブル
-  const tabs = $$('.fn-frame[data-goto]');
+  // （胶卷导航的「曝光帧」和说明文字由 initFilmNav 按片门位置自己决定）
   const hudCh = $('#hud-chapter');
-  const caption = $('.fn-caption');
   let current = '';
   const setChapter = (id) => {
     if (id === current) return;
     current = id;
     const c = chapters.find((x) => x.id === id);
-    tabs.forEach((t) => t.classList.toggle('is-active', t.dataset.goto === id));
     const label = c.no ? `第${c.no}話 ${c.ja}` : c.ja;
     gsap.to(hudCh, { duration: 0.6, scrambleText: { text: label, chars: KANA, speed: 0.8 } });
-    if (caption) gsap.to(caption, { duration: 0.6, scrambleText: { text: label, chars: KANA, speed: 0.8 } });
   };
   $$('[data-chapter]').forEach((sec) => {
     ScrollTrigger.create({

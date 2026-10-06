@@ -505,13 +505,24 @@ function filmnav() {
       </a>`;
     })
     .join('');
-  return `<div class="fn-reel">${leader}${frames}<span class="fn-frame fn-leader fn-end" aria-hidden="true"><b>END</b></span>${blank(30)}</div><i class="fn-blur top" aria-hidden="true"></i><i class="fn-blur bot" aria-hidden="true"></i><i class="fn-gate" aria-hidden="true"></i>`;
+  return `<div class="fn-reel">${leader}${frames}<span class="fn-frame fn-leader fn-end" aria-hidden="true"><b>END</b></span>${blank(30)}</div><i class="fn-blur top" aria-hidden="true"></i><i class="fn-blur bot" aria-hidden="true"></i>`;
 }
 
 export function render(root) {
   root.innerHTML = cover() + contents() + about() + works() + skills() + story() + favorites() + next() + contact() + colophon();
 
-  document.getElementById('filmnav').innerHTML = filmnav();
+  const nav = document.getElementById('filmnav');
+  nav.innerHTML = filmnav();
+  // 放映机的片门：放在胶卷外面（胶卷有遮罩，放里面会被裁掉，没法「溢出胶片」）
+  nav.insertAdjacentHTML(
+    'afterend',
+    `<div class="fn-lens" aria-hidden="true">
+      <i class="fl-glow"></i>
+      <i class="fl-line"></i>
+      <div class="fl-frame"><i class="fl-img"></i><i class="fl-img"></i><i class="fl-sheen"></i><b class="fl-no"></b></div>
+      <i class="fl-bracket"></i>
+    </div>`,
+  );
   document.getElementById('mobile-toc').innerHTML = `
     <div class="mt-inner">
       <p class="mt-label" lang="ja">目次 <small>CONTENTS</small></p>
