@@ -20,6 +20,7 @@
   inset: -5%;
   width: 110%;
   height: 110%;
+  max-width: none; /* 全局 svg { max-width: 100% } 会把它截成 100%，右边（胶卷那一条）就空了 */
   color: var(--ink);
 }
 .pt-label {

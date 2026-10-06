@@ -175,6 +175,28 @@ export function initFilmNav() {
   caption.className = 'fn-caption';
   caption.setAttribute('aria-hidden', 'true');
   document.body.appendChild(caption);
+  // 说明文字：滚动时出现，页面静止 2 秒后淡出（鼠标停在胶卷上时一直显示）
+  gsap.set(caption, { opacity: 0, x: 10 });
+  let shown = false;
+  let hideTimer = 0;
+  let hovering = false;
+  const showCaption = () => {
+    if (innerWidth <= 900) return;
+    clearTimeout(hideTimer);
+    if (!shown) {
+      shown = true;
+      gsap.to(caption, { opacity: 1, x: 0, duration: 0.35, ease: 'power2.out', overwrite: 'auto' });
+    }
+    hideTimer = setTimeout(hideCaption, 2000);
+  };
+  const hideCaption = () => {
+    if (hovering) return;
+    shown = false;
+    gsap.to(caption, { opacity: 0, x: 10, duration: 0.8, ease: 'power2.inOut', overwrite: 'auto' });
+  };
+  addEventListener('scroll', showCaption, { passive: true });
+  nav.addEventListener('pointerenter', () => ((hovering = true), showCaption()));
+  nav.addEventListener('pointerleave', () => ((hovering = false), showCaption()));
   const secs = chapters.map((c) => document.getElementById(c.id));
   let tops = [];
   const measure = () => (tops = secs.map((s) => s.getBoundingClientRect().top + scrollY));
@@ -255,20 +277,21 @@ export function initNav({ audioOn }) {
   const bubbleUp = () => {
     const W = innerWidth,
       H = innerHeight;
-    const n = W < 700 ? 16 : 30;
+    const n = W < 700 ? 34 : W < 1200 ? 64 : 84;
     for (let i = 0; i < n; i++) {
       const el = document.createElement('i');
-      const big = Math.random() < 0.25;
-      const size = big ? rand(34, 70) : rand(8, 30);
+      const r = Math.random();
+      const size = r < 0.12 ? rand(44, 84) : r < 0.4 ? rand(22, 44) : rand(6, 22);
+      const big = size > 40;
       el.className = 'ptb';
       el.style.setProperty('--s', `${size.toFixed(0)}px`);
       el.style.setProperty('--hue', `${rand(0, 360).toFixed(0)}deg`);
       bubbles.appendChild(el);
-      const dur = rand(1.3, 2.3) * (big ? 1.15 : 1);
+      const dur = rand(1.1, 2.3) * (big ? 1.2 : 1);
       const x0 = W * rand(0.02, 0.98);
       gsap.set(el, { x: x0, y: H + size, scale: rand(0.5, 0.8), opacity: 0 });
       gsap
-        .timeline({ delay: rand(0, 0.7), onComplete: () => el.remove() })
+        .timeline({ delay: rand(0, 0.9), onComplete: () => el.remove() })
         .to(el, { opacity: rand(0.75, 1), duration: 0.25 }, 0)
         .to(el, { y: -size * 2 - H * rand(0, 0.15), duration: dur, ease: 'power1.in' }, 0)
         .to(el, { x: x0 + rand(-70, 70), duration: dur, ease: 'sine.inOut' }, 0)

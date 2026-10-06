@@ -116,8 +116,7 @@ export function coverIntro() {
     .from('.cover-burst', { scale: 0, rotate: 180, duration: 0.9, ease: 'back.out(2)' }, 1.2)
     .from('.cover-barcode, .cover-top, .scroll-hint', { opacity: 0, y: 10, duration: 0.8, stagger: 0.1 }, 1.0)
     .from('.filmnav', { xPercent: 140, duration: 1.1, ease: 'expo.out' }, 0.9)
-    .from('.fn-lens', { opacity: 0, duration: 0.8 }, 1.4)
-    .fromTo('.fn-caption', { opacity: 0 }, { opacity: 1, duration: 0.6 }, 1.6);
+    .from('.fn-lens', { opacity: 0, duration: 0.8 }, 1.4);
   // 天数从 0 数上来
   const num = $('.cc-num b');
   if (num) {

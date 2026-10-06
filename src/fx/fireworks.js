@@ -56,6 +56,97 @@ const SCHEMES = [
   ['yellow', 'orange', 'blue'],
 ];
 
+/* ---------- 型物（图案花火）：单位坐标里的折线，y 向下；每条带一个颜色角色 0/1/2 ---------- */
+const arc = (cx, cy, rx, ry, a0, a1, n = 24) => Array.from({ length: n + 1 }, (_, i) => {
+  const a = a0 + ((a1 - a0) * i) / n;
+  return [cx + Math.cos(a) * rx, cy + Math.sin(a) * ry];
+});
+const SHAPES = {
+  // 水母：伞 + 波浪伞缘 + 内部生殖腺 + 几条飘动的触手
+  jelly: () => [
+    [0, arc(0, -0.08, 0.78, 0.66, Math.PI, Math.PI * 2, 28)],
+    [0, Array.from({ length: 17 }, (_, i) => [-0.78 + (1.56 * i) / 16, -0.08 + Math.abs(Math.sin(i * 1.6)) * 0.07])],
+    [2, arc(-0.2, -0.36, 0.13, 0.11, 0, Math.PI * 2, 10)],
+    [2, arc(0.2, -0.36, 0.13, 0.11, 0, Math.PI * 2, 10)],
+    ...[-0.52, -0.2, 0.14, 0.46].map((x0, k) => [1, Array.from({ length: 14 }, (_, i) => [x0 + Math.sin(i * 0.7 + k * 1.3) * 0.09, -0.04 + i * 0.075])]),
+  ],
+  heart: () => [[0, Array.from({ length: 49 }, (_, i) => {
+    const t = (i / 48) * Math.PI * 2;
+    return [(16 * Math.sin(t) ** 3) / 17, -(13 * Math.cos(t) - 5 * Math.cos(2 * t) - 2 * Math.cos(3 * t) - Math.cos(4 * t)) / 17 + 0.1];
+  })]],
+  star: () => [[0, Array.from({ length: 11 }, (_, i) => {
+    const a = -Math.PI / 2 + (i * Math.PI) / 5;
+    const r = i % 2 ? 0.42 : 1;
+    return [Math.cos(a) * r, Math.sin(a) * r];
+  })], [2, arc(0, 0, 0.16, 0.16, 0, Math.PI * 2, 8)]],
+  // ニコちゃん
+  smile: () => [
+    [0, arc(0, 0, 1, 1, 0, Math.PI * 2, 40)],
+    [1, arc(-0.36, -0.28, 0.08, 0.16, 0, Math.PI * 2, 8)],
+    [1, arc(0.36, -0.28, 0.08, 0.16, 0, Math.PI * 2, 8)],
+    [2, arc(0, 0.02, 0.58, 0.52, Math.PI * 0.18, Math.PI * 0.82, 16)],
+  ],
+  // 金魚：身体 + 大尾巴 + 眼睛
+  kingyo: () => [
+    [0, arc(-0.2, 0, 0.58, 0.4, Math.PI * 0.2, Math.PI * 1.8, 30)],
+    [1, [[0.3, -0.18], [0.62, -0.62], [1, -0.5], [0.8, -0.12], [0.72, 0], [0.8, 0.12], [1, 0.5], [0.62, 0.62], [0.3, 0.18]]],
+    [2, arc(-0.5, -0.1, 0.06, 0.06, 0, Math.PI * 2, 6)],
+    [1, [[-0.1, 0.36], [0.05, 0.62], [0.2, 0.34]]],
+  ],
+  // 猫
+  neko: () => [
+    [0, arc(0, 0.08, 0.86, 0.74, -Math.PI * 0.28, Math.PI * 1.28, 32)],
+    [0, [[-0.62, -0.42], [-0.6, -0.98], [-0.18, -0.64], [0.18, -0.64], [0.6, -0.98], [0.62, -0.42]]],
+    [2, arc(-0.32, -0.04, 0.09, 0.09, 0, Math.PI * 2, 7)],
+    [2, arc(0.32, -0.04, 0.09, 0.09, 0, Math.PI * 2, 7)],
+    [1, [[-1.15, 0.12], [-0.5, 0.2]]],
+    [1, [[-1.1, 0.34], [-0.5, 0.3]]],
+    [1, [[1.15, 0.12], [0.5, 0.2]]],
+    [1, [[1.1, 0.34], [0.5, 0.3]]],
+    [1, [[-0.12, 0.3], [0, 0.4], [0.12, 0.3]]],
+  ],
+};
+// 水母出现得最多
+const SHAPE_W = [['jelly', 0.34], ['kingyo', 0.16], ['heart', 0.13], ['star', 0.13], ['smile', 0.12], ['neko', 0.12]];
+const pickShape = () => {
+  let r = Math.random();
+  for (const [k, w] of SHAPE_W) if ((r -= w) < 0) return k;
+  return 'jelly';
+};
+// 图案的配色（主线 / 第二色 / 点缀）
+const SHAPE_COLORS = {
+  jelly: [['cyan', 'violet', 'pink'], ['silver', 'cyan', 'pink'], ['white', 'blue', 'gold']],
+  heart: [['pink', 'red', 'gold'], ['red', 'pink', 'gold']],
+  star: [['gold', 'yellow', 'red'], ['yellow', 'gold', 'cyan']],
+  smile: [['yellow', 'red', 'orange'], ['gold', 'cyan', 'pink']],
+  kingyo: [['red', 'orange', 'white'], ['orange', 'red', 'white']],
+  neko: [['silver', 'gold', 'green'], ['violet', 'pink', 'gold']],
+};
+
+// 沿折线均匀取 n 个点
+function sample(lines, n) {
+  const segs = [];
+  let total = 0;
+  for (const [role, pts] of lines)
+    for (let i = 0; i < pts.length - 1; i++) {
+      const l = Math.hypot(pts[i + 1][0] - pts[i][0], pts[i + 1][1] - pts[i][1]);
+      segs.push([role, pts[i], pts[i + 1], l]);
+      total += l;
+    }
+  const out = [];
+  const step = total / n;
+  let acc = step / 2;
+  for (const [role, a, b, l] of segs) {
+    while (acc <= l) {
+      const k = acc / l;
+      out.push([role, a[0] + (b[0] - a[0]) * k, a[1] + (b[1] - a[1]) * k]);
+      acc += step;
+    }
+    acc -= l;
+  }
+  return out;
+}
+
 const LV = 10; // 透明度档位
 const NC = NAMES.length;
 // 火星种类
@@ -246,6 +337,28 @@ export function createFireworks(canvas, { onBurst } = {}) {
         sphere(x, y, n(30), v * 0.35, { k: DOT, life: 1, c: c3, drag: d, trail: 1.2, thin: true });
         break;
       }
+      case 'kata': {
+        // 型物：每颗星的初速度正比于它在图案上的位置 → 炸开后整个图案等比放大，轮廓一直保持
+        const name = sh.shape || pickShape();
+        const cols = pick(SHAPE_COLORS[name]).map((n) => C[n]);
+        const d = 0.968;
+        const v = R * 0.95 * (1 - d);
+        const rot = rand(-0.35, 0.35);
+        const squash = Math.cos(rand(0, 0.7)) * (Math.random() < 0.5 ? -1 : 1); // 立体感：像从侧面看
+        const cr = Math.cos(rot),
+          sr = Math.sin(rot);
+        for (const [role, px, py] of sample(SHAPES[name](), n(240))) {
+          const ux = px * squash,
+            uy = py;
+          const vx = (ux * cr - uy * sr) * v,
+            vy = (ux * sr + uy * cr) * v;
+          add(x, y, vx, vy, { life: rand(1.8, 2.2), c: cols[role], c2: Math.random() < 0.3 ? C.white : -1, swap: 0.8, drag: d, g: 0.012, trail: 1.4, strobe: role === 2 });
+        }
+        flash(x, y, R * 0.8, cols[0], 0.35);
+        smoke(x, y, R * 0.8);
+        onBurst && onBurst(sh.size * 0.9, false);
+        return;
+      }
       case 'nishiki': {
         const d = 0.97;
         sphere(x, y, n(200), R * (1 - d), { life: rand(1.6, 2), c: C.gold, drag: d, trail: 3.2, crackle: true });
@@ -267,12 +380,13 @@ export function createFireworks(canvas, { onBurst } = {}) {
   }
 
   const TYPES = [
-    ['kiku', 0.3],
-    ['botan', 0.18],
-    ['kamuro', 0.16],
-    ['senrin', 0.12],
-    ['ring', 0.1],
-    ['nishiki', 0.14],
+    ['kiku', 0.27],
+    ['botan', 0.16],
+    ['kamuro', 0.14],
+    ['senrin', 0.1],
+    ['ring', 0.03],
+    ['nishiki', 0.11],
+    ['kata', 0.19],
   ];
   const randType = () => {
     let r = Math.random();
@@ -280,6 +394,7 @@ export function createFireworks(canvas, { onBurst } = {}) {
     return 'kiku';
   };
   const shell = (o = {}) => ({
+    shape: o.shape,
     type: o.type || randType(),
     scheme: pick(SCHEMES),
     size: o.size ?? rand(0.75, 1.25),
@@ -302,11 +417,18 @@ export function createFireworks(canvas, { onBurst } = {}) {
     if (clock > salvoAt) {
       // スターマイン：一串连发，最后几发冠菊收尾
       const m = Math.round(rand(14, 22) * Math.min(1, scale + 0.25));
-      for (let i = 0; i < m; i++) queue.push({ at: clock + i * rand(0.08, 0.16), sh: shell({ type: pick(['kiku', 'botan', 'botan', 'ring', 'nishiki']), size: rand(0.55, 0.9), x: 0.12 + 0.76 * (i % 2 ? i / (m - 1) : 1 - i / (m - 1)) + rand(-0.05, 0.05), y: rand(0.12, 0.5) }) });
+      for (let i = 0; i < m; i++) queue.push({ at: clock + i * rand(0.08, 0.16), sh: shell({ type: pick(['kiku', 'botan', 'botan', 'nishiki']), size: rand(0.55, 0.9), x: 0.12 + 0.76 * (i % 2 ? i / (m - 1) : 1 - i / (m - 1)) + rand(-0.05, 0.05), y: rand(0.12, 0.5) }) });
       const end = clock + m * 0.12 + 0.3;
       for (let i = 0; i < 5; i++) queue.push({ at: end + i * 0.1, sh: shell({ type: 'kamuro', size: rand(1, 1.3), x: 0.12 + i * 0.19, y: rand(0.08, 0.2) }) });
       salvoAt = clock + rand(10, 14);
       nextAt = end + 2.6;
+      return;
+    }
+    if (Math.random() < 0.16) {
+      // 同一个图案三连发（比如三只水母并排）
+      const shape = pickShape();
+      [0.24, 0.5, 0.76].forEach((x, i) => queue.push({ at: clock + i * 0.18, sh: shell({ type: 'kata', shape, x: x + rand(-0.04, 0.04), y: rand(0.16, 0.36), size: rand(0.7, 0.9) }) }));
+      nextAt = clock + rand(1.8, 2.4);
       return;
     }
     const k = Math.random() < 0.45 ? Math.round(rand(2, 4)) : 1;
@@ -329,6 +451,15 @@ export function createFireworks(canvas, { onBurst } = {}) {
   function frame(now) {
     const dt = Math.min(0.05, (now - last) / 1000 || 0.016);
     last = now;
+    tick(dt);
+    if (playing || ps.length || flashes.length || smokes.length || queue.length || pending.length) requestAnimationFrame(frame);
+    else {
+      running = false;
+      ctx.clearRect(0, 0, W, H);
+    }
+  }
+
+  function tick(dt) {
     const t0 = performance.now();
     const f = dt * 60;
     clock += dt;
@@ -482,12 +613,6 @@ export function createFireworks(canvas, { onBurst } = {}) {
     cost += (performance.now() - t0 - cost) * 0.1;
     // 很卡就少放一点
     if (cost > 9) cap = Math.max(1200, cap * 0.97);
-
-    if (playing || ps.length || flashes.length || smokes.length || queue.length || pending.length) requestAnimationFrame(frame);
-    else {
-      running = false;
-      ctx.clearRect(0, 0, W, H);
-    }
   }
 
   function start() {
@@ -505,7 +630,8 @@ export function createFireworks(canvas, { onBurst } = {}) {
       // 开场：三发齐放
       salvoAt = clock + rand(7, 10);
       nextAt = clock + 1.4;
-      [0.25, 0.5, 0.75].forEach((x, i) => queue.push({ at: clock + i * 0.08, sh: shell({ type: i === 1 ? 'kiku' : pick(['kiku', 'botan', 'ring']), x, y: rand(0.16, 0.3), size: i === 1 ? 1.25 : 0.95 }) }));
+      // 开场：中间一发大菊，两边各一只水母
+      [0.25, 0.5, 0.75].forEach((x, i) => queue.push({ at: clock + i * 0.08, sh: shell(i === 1 ? { type: 'kiku', x, y: 0.22, size: 1.25 } : { type: 'kata', shape: 'jelly', x, y: rand(0.2, 0.3), size: 0.9 }) }));
       start();
     },
     stop() {
@@ -513,5 +639,13 @@ export function createFireworks(canvas, { onBurst } = {}) {
       queue.length = 0;
     },
     perf: () => ({ cost, n: ps.length, cap }),
+    // 调试用：指定发一发
+    _fire(o) {
+      queue.push({ at: clock, sh: shell(o) });
+      start();
+    },
+    _advance(sec) {
+      for (let k = 0; k < sec * 60; k++) tick(1 / 60);
+    },
   };
 }
