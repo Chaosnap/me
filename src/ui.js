@@ -1,6 +1,6 @@
 import gsap from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
-import { chapters, workDetail } from './render.js';
+import { chapters, workDetail, asset } from './render.js';
 import { site } from './content.js';
 import { speedLines } from './art.js';
 import { sound, pageTurn, chime, blip } from './fx/sound.js';
@@ -476,32 +476,68 @@ export function initModal() {
     idx = (i + n) % n;
     sheet.innerHTML = workDetail(idx);
   };
+  // 预载 + 预解码大图：切换时新图已经解码好，不会在动画中途卡一下（手机上尤其明显）
+  const decoded = new Map();
+  const preload = (i) => {
+    const k = (i + n) % n;
+    const src = site.works[k]?.image;
+    if (!src) return Promise.resolve();
+    if (!decoded.has(k)) {
+      const im = new Image();
+      im.decoding = 'async';
+      im.src = asset(src);
+      decoded.set(k, (im.decode ? im.decode() : new Promise((r) => (im.onload = im.onerror = r))).catch(() => {}));
+    }
+    return decoded.get(k);
+  };
+  const ready = (i) => Promise.race([preload(i), new Promise((r) => setTimeout(r, 450))]);
+  const neighbours = () => (preload(idx + 1), preload(idx - 1));
+  const narrow = () => innerWidth <= 900;
   const intro = (delay = 0.12) =>
     gsap.from($$('.md-body > *', sheet), { x: 24, opacity: 0, stagger: 0.05, duration: 0.5, delay, ease: 'power3.out', clearProps: 'transform,translate,rotate,scale,opacity' });
 
+  let opening = false;
   const open = (i) => {
+    if (opening || !modal.hidden) return;
+    opening = true;
     last = document.activeElement;
-    modal.hidden = false;
-    fill(i);
-    intro();
     lenis && lenis.stop();
-    gsap.fromTo('.modal-backdrop', { opacity: 0 }, { opacity: 1, duration: 0.4 });
-    gsap.fromTo(sheet, { y: 80, rotate: 3, opacity: 0, scale: 0.95, transformOrigin: '50% 50%' }, { y: 0, rotate: 0, opacity: 1, scale: 1, duration: 0.7, ease: 'expo.out' });
-    $('.modal-close', sheet).focus();
+    ready(i).then(() => {
+      opening = false;
+      modal.hidden = false;
+      fill(i);
+      intro();
+      gsap.fromTo('.modal-backdrop', { opacity: 0 }, { opacity: 1, duration: 0.4 });
+      gsap.fromTo(sheet, { y: 80, rotate: 3, opacity: 0, scale: 0.95, transformOrigin: '50% 50%' }, { y: 0, rotate: 0, opacity: 1, scale: 1, duration: 0.7, ease: 'expo.out', onComplete: neighbours });
+      $('.modal-close', sheet).focus({ preventScroll: true });
+    });
   };
 
   /** dir = -1：前一张（当前票根往右下转走）；dir = 1：后一张（往左下转走） */
   const swap = (dir) => {
     if (busy || modal.hidden) return;
     busy = true;
-    const out = -16 * dir; // 「前」往右下转走（新的一张从左下转进来）；「次」往左下
-    // 注意：时间线里的 fromTo 默认 immediateRender，会在创建时就把票根设成透明 → 退场动画看不见
-    gsap
-      .timeline({ onComplete: () => (busy = false) })
-      .to(sheet, { rotate: out, y: 30, opacity: 0, duration: 0.42, ease: 'power2.in', transformOrigin: PIVOT })
-      .add(() => fill(idx + dir))
-      .fromTo(sheet, { rotate: -out, y: 30, opacity: 0, transformOrigin: PIVOT }, { rotate: 0, y: 0, opacity: 1, duration: 0.75, ease: 'back.out(1.25)', immediateRender: false })
-      .add(() => intro(0), '-=0.55');
+    const target = idx + dir;
+    const pre = ready(target); // 退场的同时就开始解码下一张
+    // 手机上票根很高，支点又远：16° 会一下子甩出屏幕，看起来像跳帧 → 小一点的角度、近一点的支点
+    const pivot = narrow() ? '50% 190%' : PIVOT;
+    const out = (narrow() ? -9 : -16) * dir; // 「前」往右下转走（新的一张从左下转进来）；「次」往左下
+    gsap.to(sheet, {
+      rotate: out,
+      y: 30,
+      opacity: 0,
+      duration: 0.42,
+      ease: 'power2.in',
+      transformOrigin: pivot,
+      onComplete: () =>
+        pre.then(() => {
+          fill(target);
+          gsap
+            .timeline({ onComplete: () => ((busy = false), neighbours()) })
+            .fromTo(sheet, { rotate: -out, y: 30, opacity: 0, transformOrigin: pivot }, { rotate: 0, y: 0, opacity: 1, duration: 0.75, ease: 'back.out(1.25)' })
+            .add(() => intro(0), 0.2);
+        }),
+    });
   };
 
   const close = () => {

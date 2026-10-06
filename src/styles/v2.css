@@ -1517,3 +1517,25 @@ html.has-cursor #cursor {
 img.img-wait {
   opacity: 0;
 }
+
+/* 作品弹窗的性能：票根单独一层交给 GPU 转 */
+.modal-sheet {
+  will-change: transform, opacity;
+}
+/* 手机 / 触屏：全屏 backdrop 模糊 + 图片背后的大半径模糊太吃 GPU（背后的页面一直在动，每帧都要重算）
+ * → 换成不透明一点的底色，去掉图片背后的模糊 */
+@media (max-width: 900px), (hover: none) {
+  .modal-backdrop {
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+    background: color-mix(in srgb, var(--navy) 90%, transparent);
+  }
+  .md-blur {
+    display: none;
+  }
+}
+@media (max-width: 900px) {
+  .modal-sheet {
+    max-height: calc(100svh - var(--gutter) * 2);
+  }
+}
