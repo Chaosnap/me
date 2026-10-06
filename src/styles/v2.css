@@ -11,8 +11,31 @@
   right: calc(var(--frame) + 6px);
   width: 66px;
   pointer-events: none;
-  -webkit-mask-image: linear-gradient(to bottom, transparent 3%, #000 20%, #000 80%, transparent 97%);
-  mask-image: linear-gradient(to bottom, transparent 3%, #000 20%, #000 80%, transparent 97%);
+  /* 胶卷一直延伸到屏幕上下边缘，只在最末端淡一点 */
+  -webkit-mask-image: linear-gradient(to bottom, rgba(0, 0, 0, 0.45), #000 12%, #000 88%, rgba(0, 0, 0, 0.45));
+  mask-image: linear-gradient(to bottom, rgba(0, 0, 0, 0.45), #000 12%, #000 88%, rgba(0, 0, 0, 0.45));
+}
+/* 上下两端的景深模糊：越靠边越糊，中间清晰
+ * （.filmnav 有 mask，是 backdrop root，所以只会糊到胶卷本身，不会糊到页面） */
+.fn-blur {
+  position: absolute;
+  z-index: 1;
+  left: 0;
+  right: 0;
+  height: 26%;
+  pointer-events: none;
+  -webkit-backdrop-filter: blur(3px) saturate(0.8);
+  backdrop-filter: blur(3px) saturate(0.8);
+}
+.fn-blur.top {
+  top: 0;
+  -webkit-mask-image: linear-gradient(to bottom, #000 25%, transparent);
+  mask-image: linear-gradient(to bottom, #000 25%, transparent);
+}
+.fn-blur.bot {
+  bottom: 0;
+  -webkit-mask-image: linear-gradient(to top, #000 25%, transparent);
+  mask-image: linear-gradient(to top, #000 25%, transparent);
 }
 .fn-reel {
   position: absolute;
@@ -140,7 +163,6 @@ html.has-cursor #cursor {
 }
 .c-ring,
 .c-dot,
-.c-label,
 .c-orbit {
   position: fixed;
   left: 0;
@@ -163,7 +185,7 @@ html.has-cursor #cursor {
   background: radial-gradient(circle at 50% 50%, transparent 56%, rgba(170, 215, 255, 0.16) 80%, rgba(255, 255, 255, 0.42) 100%);
   box-shadow: 0 0 0 0.6px rgba(14, 34, 62, 0.42), 0 4px 12px rgba(20, 60, 110, 0.16);
   animation: bubbleBreath 2.6s ease-in-out infinite;
-  transition: width 0.5s cubic-bezier(0.2, 0.9, 0.25, 1.25), height 0.5s cubic-bezier(0.2, 0.9, 0.25, 1.25), margin 0.5s cubic-bezier(0.2, 0.9, 0.25, 1.25);
+  transition: width 0.25s var(--ease-out), height 0.25s var(--ease-out), margin 0.25s var(--ease-out), background 0.4s, box-shadow 0.4s;
 }
 @keyframes bubbleBreath {
   50% {
@@ -173,19 +195,12 @@ html.has-cursor #cursor {
 .c-iris {
   position: absolute;
   inset: 0;
-  border-radius: 50%;
+  border-radius: inherit;
   background: conic-gradient(#8fd3ff, #b9a6ff, #ffa9d3, #ffe3a3, #a8ffd8, #8fd3ff);
   -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 2.2px), #000 calc(100% - 1.6px));
   mask: radial-gradient(farthest-side, transparent calc(100% - 2.2px), #000 calc(100% - 1.6px));
   animation: spin 5s linear infinite;
-}
-.c-pearl {
-  position: absolute;
-  inset: 2px;
-  border-radius: 50%;
-  background: radial-gradient(circle at 36% 30%, #ffffff, #f3f8ff 45%, #dfeeff 80%, #cfe4ff);
-  opacity: 0;
-  transition: opacity 0.3s;
+  transition: filter 0.4s;
 }
 .c-spec {
   position: absolute;
@@ -197,6 +212,7 @@ html.has-cursor #cursor {
   border-top: 1.6px solid rgba(255, 255, 255, 0.95);
   border-left: 1px solid rgba(255, 255, 255, 0.55);
   rotate: -18deg;
+  transition: border-width 0.4s, filter 0.4s;
 }
 .c-spec::after {
   content: '';
@@ -208,56 +224,87 @@ html.has-cursor #cursor {
   border-radius: 50%;
   background: #fff;
 }
-#cursor.is-hover .c-bubble {
-  --cs: 74px;
+.c-glint {
+  position: absolute;
+  right: 18%;
+  bottom: 16%;
+  width: 26%;
+  height: 26%;
+  border-radius: 50%;
+  border-bottom: 1.2px solid rgba(255, 255, 255, 0.8);
+  rotate: -20deg;
+  opacity: 0;
+  transition: opacity 0.4s;
 }
-#cursor.is-hover .c-pearl {
-  opacity: 0.92;
+
+/* —— 选中态：液态放大，「被碰到之后活了起来」 —— */
+#cursor.is-hover .c-bubble {
+  /* 更透明 + 透过泡泡看到的东西更饱和（像一枚小透镜） */
+  background: radial-gradient(circle at 50% 50%, transparent 64%, rgba(150, 210, 255, 0.1) 84%, rgba(255, 255, 255, 0.3) 100%);
+  -webkit-backdrop-filter: saturate(1.9) brightness(1.06) contrast(1.04);
+  backdrop-filter: saturate(1.9) brightness(1.06) contrast(1.04);
+  box-shadow: 0 0 0 0.6px rgba(14, 34, 62, 0.32), 0 6px 16px rgba(20, 60, 110, 0.2), inset 0 0 9px rgba(255, 255, 255, 0.5), 0 0 16px rgba(140, 200, 255, 0.5);
+  animation: liquidPop 0.85s both, liquidIdle 2.2s 0.85s ease-in-out infinite;
+}
+@keyframes liquidPop {
+  0% { scale: 1; border-radius: 50%; animation-timing-function: cubic-bezier(0.3, 0, 0.4, 1); }
+  22% { scale: 1.2 0.93; border-radius: 46% 54% 48% 52% / 55% 45% 55% 45%; }
+  46% { scale: 0.97 1.17; border-radius: 54% 46% 52% 48% / 45% 55% 45% 55%; }
+  70% { scale: 1.12 1.04; border-radius: 49% 51% 50% 50% / 51% 49% 51% 49%; }
+  100% { scale: 1.08; border-radius: 50%; }
+}
+@keyframes liquidIdle {
+  0%, 100% { scale: 1.08; border-radius: 50%; }
+  33% { scale: 1.1 1.06; border-radius: 47% 53% 51% 49% / 53% 47% 53% 47%; }
+  66% { scale: 1.06 1.1; border-radius: 53% 47% 49% 51% / 47% 53% 47% 53%; }
+}
+#cursor.is-hover .c-iris {
+  filter: saturate(1.9) brightness(1.12);
+  -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 3px), #000 calc(100% - 2.2px));
+  mask: radial-gradient(farthest-side, transparent calc(100% - 3px), #000 calc(100% - 2.2px));
+  animation-duration: 2.6s;
+}
+#cursor.is-hover .c-spec {
+  border-top-width: 2.3px;
+  filter: drop-shadow(0 0 2px rgba(255, 255, 255, 0.95));
+}
+#cursor.is-hover .c-glint {
+  opacity: 1;
 }
 #cursor.is-down .c-bubble {
-  --cs: 18px;
+  --cs: 20px;
 }
-#cursor.is-hover.is-down .c-bubble {
-  --cs: 62px;
-}
-.c-label {
-  translate: -50% -50%;
-  font-family: var(--f-gothic);
-  font-size: 13px;
-  letter-spacing: 0.04em;
-  color: #0c2440;
-  white-space: nowrap;
-  opacity: 0;
-  scale: 0.6;
-  transition: opacity 0.25s, scale 0.45s cubic-bezier(0.2, 0.9, 0.25, 1.3);
-}
-#cursor.is-hover .c-label {
-  opacity: 1;
-  scale: 1;
-}
+
+/* 外圈文字：出现时沿弧形「抬升」 */
 .c-orbit {
-  width: 120px;
-  height: 120px;
-  margin: -60px 0 0 -60px;
+  width: 96px;
+  height: 96px;
+  margin: -48px 0 0 -48px;
+}
+.c-orbit svg {
+  width: 100%;
+  height: 100%;
   overflow: visible;
   opacity: 0;
-  transition: opacity 0.3s;
+  scale: 0.78;
+  rotate: -26deg;
+  transition: opacity 0.3s, scale 0.75s cubic-bezier(0.25, 1.6, 0.4, 1), rotate 0.9s cubic-bezier(0.2, 0.9, 0.3, 1);
+}
+#cursor.is-hover .c-orbit svg {
+  opacity: 1;
+  scale: 1;
+  rotate: 0deg;
 }
 .c-orbit text {
   font-family: var(--f-mono);
-  font-size: 8.5px;
+  font-size: 7.5px;
+  letter-spacing: 0.5px;
   fill: #f6f9ff;
   stroke: rgba(12, 32, 58, 0.62);
-  stroke-width: 2.4px;
+  stroke-width: 2.2px;
   paint-order: stroke fill;
-  letter-spacing: 1px;
-}
-.c-orbit text {
-  transform-origin: 60px 60px;
-  animation: spin 9s linear infinite;
-}
-#cursor.is-hover .c-orbit {
-  opacity: 1;
+  transform-origin: 48px 48px;
+  animation: spin 11s linear infinite;
 }
 .c-dot {
   width: 5px;
@@ -266,10 +313,10 @@ html.has-cursor #cursor {
   border-radius: 50%;
   background: #fff;
   box-shadow: 0 0 0 1.4px rgba(14, 34, 62, 0.75), 0 0 6px rgba(120, 190, 255, 0.9);
-  transition: opacity 0.2s;
+  transition: scale 0.3s;
 }
 #cursor.is-hover .c-dot {
-  opacity: 0;
+  scale: 0.7;
 }
 
 /* ============ HUD：背景音乐 ============ */
@@ -1148,5 +1195,45 @@ html.has-cursor #cursor {
   to {
     scale: 1.18;
     translate: 2% -2%;
+  }
+}
+
+/* ============ 作品详情：票根 ============ */
+.md-art {
+  border-right-style: dashed !important;
+}
+.md-body {
+  position: relative;
+}
+/* 撕线两端的半圆缺口 */
+.md-body::before,
+.md-body::after {
+  content: '';
+  position: absolute;
+  left: -13px;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: #121821;
+  box-shadow: inset 0 0 0 2px var(--ink);
+  z-index: 3;
+}
+.md-body::before {
+  top: -13px;
+}
+.md-body::after {
+  bottom: -13px;
+}
+.md-nav button {
+  min-width: 64px;
+}
+@media (max-width: 900px) {
+  .md-art {
+    border-right: 0 !important;
+    border-bottom-style: dashed !important;
+  }
+  .md-body::before,
+  .md-body::after {
+    display: none;
   }
 }

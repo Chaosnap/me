@@ -494,7 +494,7 @@ function colophon() {
 function filmnav() {
   const thumbs = site.works.map((w) => asset(w.thumb || w.image)).filter(Boolean);
   const blank = (n) => '<span class="fn-frame fn-leader fn-blank" aria-hidden="true"></span>'.repeat(n);
-  const leader = blank(8) + ['3', '2', '1'].map((n) => `<span class="fn-frame fn-leader" aria-hidden="true"><b>${n}</b></span>`).join('');
+  const leader = blank(30) + ['3', '2', '1'].map((n) => `<span class="fn-frame fn-leader" aria-hidden="true"><b>${n}</b></span>`).join('');
   const frames = chapters
     .map((c, i) => {
       const img = thumbs.length ? thumbs[i % thumbs.length] : '';
@@ -505,7 +505,7 @@ function filmnav() {
       </a>`;
     })
     .join('');
-  return `<div class="fn-reel">${leader}${frames}<span class="fn-frame fn-leader fn-end" aria-hidden="true"><b>END</b></span>${blank(10)}</div><i class="fn-gate" aria-hidden="true"></i>`;
+  return `<div class="fn-reel">${leader}${frames}<span class="fn-frame fn-leader fn-end" aria-hidden="true"><b>END</b></span>${blank(30)}</div><i class="fn-blur top" aria-hidden="true"></i><i class="fn-blur bot" aria-hidden="true"></i><i class="fn-gate" aria-hidden="true"></i>`;
 }
 
 export function render(root) {

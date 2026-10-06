@@ -146,6 +146,10 @@ export function createJellyLayer(canvas, { fixed = true, max = 36, interactive =
       alpha: o.alpha ?? 1,
       glow: o.glow,
       lock: o.lock, // 锁定朝向（成群游动时保持斜向轨迹）
+      // boids：{ g: 群组, dx, dy: 群体大方向, min, max: 速度范围 }
+      boid: o.boid,
+      bvx: o.boid ? o.boid.dx * o.boid.min : 0,
+      bvy: o.boid ? o.boid.dy * o.boid.min : 0,
       seed: rand(0, 100),
       depth: o.depth ?? 1,
       push: { x: 0, y: 0 },
@@ -379,6 +383,90 @@ export function createJellyLayer(canvas, { fixed = true, max = 36, interactive =
     ctx.restore();
   }
 
+  /* 触手 / 口腕的物理（锚点跟着伞走） */
+  function stepTentacles(j, c, f) {
+    // 触手锚点 → 世界坐标
+    const s = j.depth;
+    const cos = Math.cos(j.ang),
+      sin = Math.sin(j.ang);
+    const bw = j.r * (1 - 0.17 * c);
+    const bh = j.r * (0.74 + 0.2 * c);
+    const rimX = bw * (1 + (1 - c) * 0.08);
+    const toWorld = (lx, ly) => [j.x + (lx * cos - ly * sin) * s, j.y + (lx * sin + ly * cos) * s];
+    for (const tn of j.tents) {
+      const [ax, ay] = toWorld(-rimX * 0.97 + rimX * 1.94 * tn.u, j.r * 0.05);
+      step(tn.pts, ax, ay, (tn.len * s) / (tn.pts.length - 1), f, tn.u * 9 + j.seed);
+    }
+    for (const arm of j.arms) {
+      const [ax, ay] = toWorld((arm.k - 1.5) * j.r * 0.07, -bh * 0.14);
+      step(arm.pts, ax, ay, (arm.len * s) / (arm.pts.length - 1), f, arm.k * 2 + j.seed);
+    }
+  }
+
+  /* ---------------- boids：分离 / 对齐 / 聚合 / 群体方向 + 各自游走 ---------------- */
+  function boidStep(j, c, f) {
+    const B = j.boid;
+    let ax = 0,
+      ay = 0,
+      sx = 0,
+      sy = 0,
+      cx = 0,
+      cy = 0,
+      avx = 0,
+      avy = 0,
+      n = 0;
+    for (const o of jellies) {
+      if (o === j || !o.boid || o.boid.g !== B.g) continue;
+      const dx = j.x - o.x,
+        dy = j.y - o.y;
+      const d2 = dx * dx + dy * dy;
+      const sepR = (j.r * j.depth + o.r * o.depth) * 1.25;
+      if (d2 < sepR * sepR && d2 > 0.01) {
+        const d = Math.sqrt(d2);
+        const k = (sepR - d) / sepR;
+        sx += (dx / d) * k;
+        sy += (dy / d) * k;
+      }
+      if (d2 < 150 * 150) {
+        cx += o.x;
+        cy += o.y;
+        avx += o.bvx;
+        avy += o.bvy;
+        n++;
+      }
+    }
+    // 各自的随机游走：把群体方向左右摆一摆
+    const wander = Math.sin(t * 0.75 + j.seed) * 0.55 + Math.sin(t * 1.9 + j.seed * 1.7) * 0.3;
+    const cw = Math.cos(wander),
+      swv = Math.sin(wander);
+    const gx = B.dx * cw - B.dy * swv,
+      gy = B.dx * swv + B.dy * cw;
+    ax += gx * 0.05;
+    ay += gy * 0.05;
+    ax += sx * 0.32;
+    ay += sy * 0.32;
+    if (n) {
+      ax += (cx / n - j.x) * 0.0005 + (avx / n - j.bvx) * 0.025;
+      ay += (cy / n - j.y) * 0.0005 + (avy / n - j.bvy) * 0.025;
+    }
+    j.bvx += ax * f;
+    j.bvy += ay * f;
+    const sp = Math.hypot(j.bvx, j.bvy) || 0.001;
+    const lim = Math.min(B.max, Math.max(B.min, sp));
+    j.bvx = (j.bvx / sp) * lim;
+    j.bvy = (j.bvy / sp) * lim;
+    // 伞的朝向跟着速度方向转
+    const ta = Math.atan2(j.bvx, -j.bvy);
+    let da = (ta - j.ang) % (Math.PI * 2);
+    if (da > Math.PI) da -= Math.PI * 2;
+    if (da < -Math.PI) da += Math.PI * 2;
+    j.ang += da * 0.07 * f;
+    // 收缩时推进得更快
+    const pulse = 0.55 + 0.9 * c * c;
+    j.x += j.bvx * pulse * f;
+    j.y += j.bvy * pulse * f;
+  }
+
   const minDt = 1000 / fps - 2;
   function loop(now) {
     if (now - last < minDt) {
@@ -398,6 +486,16 @@ export function createJellyLayer(canvas, { fixed = true, max = 36, interactive =
       const c = pulseCurve(j.phase) * (1 + beat * 0.5);
       // 收缩时推进
       const sp = j.base + j.boost * c * c;
+      if (j.boid) {
+        boidStep(j, c, f);
+        if (j.life > j.maxLife || j.y < -j.r * 5 || j.x < -j.r * 6 || j.x > W + j.r * 6) {
+          jellies.splice(i, 1);
+          continue;
+        }
+        stepTentacles(j, c, f);
+        drawJelly(j, c, Math.max(0, Math.min(1, j.life / 0.9) * Math.min(1, (j.maxLife - j.life) / 1.6)));
+        continue;
+      }
       if (j.lock) j.ang += Math.sin(t * 0.8 + j.seed) * 0.0009 * f;
       else j.ang += (Math.sin(t * 0.3 + j.seed) * 0.0014 - j.ang * 0.002) * f;
       if (interactive) {
@@ -418,22 +516,7 @@ export function createJellyLayer(canvas, { fixed = true, max = 36, interactive =
         jellies.splice(i, 1);
         continue;
       }
-      // 触手锚点 → 世界坐标
-      const s = j.depth;
-      const cos = Math.cos(j.ang),
-        sin = Math.sin(j.ang);
-      const bw = j.r * (1 - 0.17 * c);
-      const bh = j.r * (0.74 + 0.2 * c);
-      const rimX = bw * (1 + (1 - c) * 0.08);
-      const toWorld = (lx, ly) => [j.x + (lx * cos - ly * sin) * s, j.y + (lx * sin + ly * cos) * s];
-      for (const tn of j.tents) {
-        const [ax, ay] = toWorld(-rimX * 0.97 + rimX * 1.94 * tn.u, j.r * 0.05);
-        step(tn.pts, ax, ay, (tn.len * s) / (tn.pts.length - 1), f, tn.u * 9 + j.seed);
-      }
-      for (const arm of j.arms) {
-        const [ax, ay] = toWorld((arm.k - 1.5) * j.r * 0.07, -bh * 0.14);
-        step(arm.pts, ax, ay, (arm.len * s) / (arm.pts.length - 1), f, arm.k * 2 + j.seed);
-      }
+      stepTentacles(j, c, f);
       const env = Math.max(0, Math.min(1, j.life / 0.9) * Math.min(1, (j.maxLife - j.life) / 1.6));
       drawJelly(j, c, env);
     }

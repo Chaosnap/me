@@ -90,7 +90,6 @@ export function initCursor({ jelly }) {
   const cur = $('#cursor');
   const ring = $('.c-ring', cur);
   const dot = $('.c-dot', cur);
-  const label = $('.c-label', cur);
   const orbit = $('.c-orbit', cur);
   const orbitText = $('textPath', orbit);
 
@@ -118,9 +117,7 @@ export function initCursor({ jelly }) {
     // 轻微的果冻形变
     const s = Math.min(0.16, sp * 0.01);
     ring.style.transform = `translate3d(${x}px,${y}px,0) rotate(${a}rad) scale(${1 + s},${1 - s * 0.6}) rotate(${-a}rad)`;
-    const tr = `translate3d(${x}px,${y}px,0)`;
-    label.style.transform = tr;
-    orbit.style.transform = tr;
+    orbit.style.transform = `translate3d(${x}px,${y}px,0)`;
     if (sp > 9 && time - lastBubble > 0.12) {
       jelly.bubble(x + rand(-5, 5), y + rand(6, 12), { r: rand(1.2, 2.4) });
       lastBubble = time;
@@ -137,9 +134,8 @@ export function initCursor({ jelly }) {
     }
     const txt = t.dataset.cursor || '';
     cur.classList.add('is-hover');
-    label.textContent = txt;
     const en = CURSOR_EN[txt] || (txt ? txt.toUpperCase() : 'CLICK');
-    orbitText.textContent = `${txt ? txt + ' ・ ' : ''}${en} ・ `.repeat(4).slice(0, 40);
+    orbitText.textContent = `${txt ? txt + ' ・ ' : ''}${en} ・ `.repeat(4).slice(0, 30);
   });
   document.addEventListener('pointerout', (e) => {
     const t = e.target.closest(sel);
@@ -180,7 +176,7 @@ export function initFilmNav() {
   const measure = () => (tops = secs.map((s) => s.getBoundingClientRect().top + scrollY));
   measure();
   ScrollTrigger.addEventListener('refresh', measure);
-  let y = innerHeight / 2;
+  let y = null;
   gsap.ticker.add(() => {
     if (!frames.length || innerWidth <= 900) return;
     const anchor = scrollY + innerHeight * 0.45;
@@ -190,7 +186,7 @@ export function initFilmNav() {
     const f = i + Math.min(1, Math.max(0, (anchor - tops[i]) / Math.max(1, next - tops[i])));
     const pitch = frames[0].offsetHeight;
     const target = innerHeight / 2 - (frames[0].offsetTop + f * pitch);
-    const ny = y + (target - y) * 0.12;
+    const ny = y === null ? target : y + (target - y) * 0.12; // 第一帧直接就位，不从屏幕中间滑上去
     if (Math.abs(ny - y) < 0.05) return;
     y = ny;
     reel.style.transform = `translate3d(0,${y.toFixed(1)}px,0)`;
@@ -352,29 +348,50 @@ export function initSoundUI({ bgm, layers, spawnFromBottom }) {
   );
 }
 
-/* ---------- 作品详情 ---------- */
+/* ---------- 作品详情（票根）：前一张往左下、后一张往右下沿弧线转走 ---------- */
 export function initModal() {
   const modal = $('#modal');
   const sheet = $('.modal-sheet', modal);
+  const n = site.works.length;
   let last = null;
   let idx = 0;
-  const fill = (i, dir = 0) => {
-    idx = (i + site.works.length) % site.works.length;
+  let busy = false;
+  const PIVOT = '50% 280%'; // 支点在票根下方很远处 → 旋转时走一段弧线
+
+  const fill = (i) => {
+    idx = (i + n) % n;
     sheet.innerHTML = workDetail(idx);
-    gsap.from($('.md-art > :last-child', sheet), { x: dir * 60, opacity: 0, scale: 1.04, duration: 0.6, ease: 'expo.out', clearProps: 'transform,translate,rotate,scale,opacity' });
-    gsap.from($$('.md-body > *', sheet), { x: 30, opacity: 0, stagger: 0.05, duration: 0.5, delay: 0.1, ease: 'power3.out', clearProps: 'transform,translate,rotate,scale,opacity' });
   };
+  const intro = (delay = 0.12) =>
+    gsap.from($$('.md-body > *', sheet), { x: 24, opacity: 0, stagger: 0.05, duration: 0.5, delay, ease: 'power3.out', clearProps: 'transform,translate,rotate,scale,opacity' });
+
   const open = (i) => {
     last = document.activeElement;
     modal.hidden = false;
     fill(i);
+    intro();
     lenis && lenis.stop();
     gsap.fromTo('.modal-backdrop', { opacity: 0 }, { opacity: 1, duration: 0.4 });
-    gsap.fromTo(sheet, { y: 80, rotate: 3, opacity: 0, scale: 0.95 }, { y: 0, rotate: 0, opacity: 1, scale: 1, duration: 0.7, ease: 'expo.out' });
+    gsap.fromTo(sheet, { y: 80, rotate: 3, opacity: 0, scale: 0.95, transformOrigin: '50% 50%' }, { y: 0, rotate: 0, opacity: 1, scale: 1, duration: 0.7, ease: 'expo.out' });
     $('.modal-close', sheet).focus();
   };
+
+  /** dir = -1：前一张（当前票根往左下转走）；dir = 1：后一张（往右下转走） */
+  const swap = (dir) => {
+    if (busy || modal.hidden) return;
+    busy = true;
+    const out = 16 * dir;
+    // 注意：时间线里的 fromTo 默认 immediateRender，会在创建时就把票根设成透明 → 退场动画看不见
+    gsap
+      .timeline({ onComplete: () => (busy = false) })
+      .to(sheet, { rotate: out, y: 30, opacity: 0, duration: 0.42, ease: 'power2.in', transformOrigin: PIVOT })
+      .add(() => fill(idx + dir))
+      .fromTo(sheet, { rotate: -out, y: 30, opacity: 0, transformOrigin: PIVOT }, { rotate: 0, y: 0, opacity: 1, duration: 0.75, ease: 'back.out(1.25)', immediateRender: false })
+      .add(() => intro(0), '-=0.55');
+  };
+
   const close = () => {
-    gsap.to(sheet, { y: 60, opacity: 0, rotate: -3, duration: 0.35, ease: 'power3.in' });
+    gsap.to(sheet, { y: 60, opacity: 0, rotate: -3, duration: 0.35, ease: 'power3.in', transformOrigin: '50% 50%' });
     gsap.to('.modal-backdrop', {
       opacity: 0,
       duration: 0.35,
@@ -389,14 +406,23 @@ export function initModal() {
     const card = e.target.closest('[data-work]');
     if (card) open(Number(card.dataset.work));
     const step = e.target.closest('[data-work-step]');
-    if (step) fill(idx + Number(step.dataset.workStep), Number(step.dataset.workStep));
+    if (step) swap(Number(step.dataset.workStep));
     if (e.target.closest('[data-close]')) close();
   });
   addEventListener('keydown', (e) => {
     if (modal.hidden) return;
     if (e.key === 'Escape') close();
-    if (e.key === 'ArrowRight') fill(idx + 1, 1);
-    if (e.key === 'ArrowLeft') fill(idx - 1, -1);
+    if (e.key === 'ArrowRight') swap(1);
+    if (e.key === 'ArrowLeft') swap(-1);
+  });
+  // 手机上左右滑动切换
+  let sx = null;
+  sheet.addEventListener('pointerdown', (e) => (sx = e.clientX));
+  sheet.addEventListener('pointerup', (e) => {
+    if (sx === null) return;
+    const dx = e.clientX - sx;
+    sx = null;
+    if (Math.abs(dx) > 60) swap(dx < 0 ? 1 : -1);
   });
 }
 
@@ -467,7 +493,9 @@ export function initParallax({ sky }) {
   });
 }
 
-/* ---------- 表紙 → 目次：水母群从底部两侧沿「倒梯形」的两条斜边浮上去 ---------- */
+/* ---------- 表紙 → 目次：水母群（boids）从底部两侧浮上来 ----------
+ * 「倒梯形两条斜边」只是两群的大方向：每只的出生位置、时间、大小、速度、初始朝向都随机，
+ * 之后由 boids（分离 / 对齐 / 聚合）+ 各自的随机游走决定轨迹，所以每次都不一样。 */
 export function initSwarm({ swarm }) {
   if (reduceMotion) return;
   let lastAt = -1e9;
@@ -477,35 +505,38 @@ export function initSwarm({ swarm }) {
     lastAt = now;
     const W = innerWidth,
       H = innerHeight;
-    // 倒梯形：底边窄（0.30W~0.70W），顶边宽（贴近两侧），斜边的倾角
     const tilt = Math.atan((0.27 * W) / H);
-    const per = W < 700 ? 8 : 13;
-    for (const side of [-1, 1]) {
+    const per = W < 700 ? 8 : 14;
+    [-1, 1].forEach((side, g) => {
       for (let i = 0; i < per; i++) {
-        const near = Math.random() < 0.55;
-        const bx = W * (0.5 + side * rand(0.14, 0.24));
-        setTimeout(() => {
-          swarm.spawn(bx + rand(-0.05, 0.05) * W, H + rand(30, 240), {
-            ang: side * tilt * rand(0.85, 1.15),
-            lock: true,
-            r: near ? rand(26, 44) : rand(11, 20),
-            depth: near ? rand(0.95, 1.1) : rand(0.72, 0.85),
-            speed: near ? rand(2.4, 3.3) : rand(1.4, 2.0),
-            boost: near ? 1.4 : 0.8,
-            alpha: near ? rand(0.85, 1) : rand(0.45, 0.65),
-            life: rand(6.5, 8),
-            vx: 0,
-          });
-        }, rand(0, 1400));
+        const near = Math.random() < 0.5;
+        // 群体大方向在 ±0.22rad 内随机偏一点
+        const a = side * tilt + rand(-0.22, 0.22);
+        const dx = Math.sin(a),
+          dy = -Math.cos(a);
+        const v = near ? rand(1.9, 2.9) : rand(1.1, 1.8);
+        setTimeout(
+          () =>
+            swarm.spawn(W * (0.5 + side * rand(0.06, 0.38)), H + rand(20, 320), {
+              ang: a + rand(-0.4, 0.4),
+              r: near ? rand(24, 44) : rand(10, 20),
+              depth: near ? rand(0.92, 1.1) : rand(0.7, 0.85),
+              alpha: near ? rand(0.85, 1) : rand(0.4, 0.65),
+              life: rand(7, 9.5),
+              boid: { g, dx, dy, min: v * 0.55, max: v * 1.15 },
+            }),
+          rand(0, 1800),
+        );
       }
-    }
+    });
     // 中间一串小气泡
-    for (let i = 0; i < 26; i++) setTimeout(() => swarm.bubble(W * rand(0.42, 0.58), H + rand(0, 40), { r: rand(1.5, 4.5) }), rand(0, 1600));
+    for (let i = 0; i < 26; i++) setTimeout(() => swarm.bubble(W * rand(0.42, 0.58), H + rand(0, 40), { r: rand(1.5, 4.5) }), rand(0, 1800));
   };
   ScrollTrigger.create({
     trigger: '#contents',
     start: 'top 92%',
     onEnter: rise,
   });
+  if (import.meta.env.DEV) window.__rise = () => ((lastAt = -1e9), rise());
   return { rise };
 }
