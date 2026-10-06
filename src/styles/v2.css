@@ -1438,3 +1438,77 @@ html.has-cursor #cursor {
 .modal-sheet::-webkit-scrollbar {
   display: none;
 }
+
+/* ================================================================
+ *  手机 / 平板（≤900px）
+ * ================================================================ */
+.tip-touch {
+  display: none;
+}
+@media (hover: none) {
+  .tip-mouse {
+    display: none;
+  }
+  .tip-touch {
+    display: inline;
+  }
+}
+@media (max-width: 900px) {
+  /* 封面：标题压在电线杆前面，读得清 */
+  .masthead {
+    z-index: 4;
+  }
+  /* 对话框：桌面版加高后在手机上太大，会压到标语 */
+  .cover-bubble {
+    width: 104px;
+    height: 168px;
+  }
+  .cover-bubble span {
+    font-size: 15px;
+    letter-spacing: 0.08em;
+    margin-top: 4%;
+  }
+  /* 目录菜单：在顶栏下面，顶栏的按钮变成「閉じる」 */
+  /* 「次は」电子屏：抬高一点，让开左下角的页码 */
+  .led {
+    bottom: calc(var(--frame) + 34px);
+  }
+  .mobile-toc {
+    z-index: 69;
+    padding-top: calc(var(--frame) + 64px);
+    padding-bottom: calc(var(--frame) + 70px); /* 最后一项不被左下角页码挡住 */
+  }
+  /* 附录贴纸：两列整齐排列 */
+  .sticker-sheet {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 18px 14px;
+    padding: 22px 16px;
+  }
+  .sticker {
+    min-width: 0;
+    padding: 14px 10px;
+  }
+  .sticker.mail {
+    grid-column: 1 / -1;
+  }
+  .sticker small {
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+/* 平板竖屏：空间够，五条目录都显示 */
+@media (min-width: 600px) and (max-width: 900px) and (min-height: 900px) {
+  .cover-lines li:nth-child(n + 4) {
+    display: block;
+  }
+  .cover-bubble {
+    width: 124px;
+    height: 200px;
+  }
+  .cover-bubble span {
+    font-size: 18px;
+  }
+}

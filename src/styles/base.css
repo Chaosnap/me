@@ -225,6 +225,9 @@ ul {
 .fx {
   position: fixed;
   inset: 0;
+  /* 用「最大视口高度」：手机地址栏伸缩时这一层不跟着变，画布不用重建 */
+  bottom: auto;
+  height: 100lvh;
   z-index: 60;
   pointer-events: none;
 }

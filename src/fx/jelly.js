@@ -80,10 +80,15 @@ export function createJellyLayer(canvas, { fixed = true, max = 36, interactive =
   let W = 0,
     H = 0,
     dpr = 1;
+  // 手机上滚动时地址栏伸缩会不停触发 resize：尺寸没变就不重建画布（重建会清空 + 掉帧）
   const resize = () => {
-    dpr = Math.min(devicePixelRatio || 1, dprCap);
-    W = fixed ? innerWidth : canvas.clientWidth;
-    H = fixed ? innerHeight : canvas.clientHeight;
+    const nd = Math.min(devicePixelRatio || 1, dprCap);
+    const nw = canvas.clientWidth || innerWidth;
+    const nh = canvas.clientHeight || innerHeight;
+    if (nw === W && nh === H && nd === dpr) return;
+    dpr = nd;
+    W = nw;
+    H = nh;
     canvas.width = Math.max(1, W * dpr);
     canvas.height = Math.max(1, H * dpr);
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);

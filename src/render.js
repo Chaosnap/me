@@ -419,7 +419,7 @@ function next() {
       ${site.next.map((n, i) => `<li style="--i:${i}"><span class="tag" lang="ja">${esc(n.tag)}</span><span>${esc(n.text)}</span></li>`).join('')}
     </ul>
     <p class="tsuzuku hand" lang="ja">つづく<span>→</span></p>
-    <p class="next-hint">TIP: どこをクリックしても、くらげが生まれる。</p>
+    <p class="next-hint">TIP: どこを<span class="tip-mouse">クリック</span><span class="tip-touch">タップ</span>しても、くらげが生まれる。</p>
   </section>`;
 }
 

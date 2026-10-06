@@ -453,6 +453,7 @@ export function createFireworks(canvas, { onBurst, avoid = {} } = {}) {
       ht: 0,
       shell: o.shell || null,
       kata: o.kata || false,
+      amp: o.amp,
     };
     if (p.k === WILLOW) {
       p.hx = new Float32Array(9);
@@ -516,7 +517,7 @@ export function createFireworks(canvas, { onBurst, avoid = {} } = {}) {
             r = rand(0.25, 0.85) * R;
           const sx = x + Math.cos(a) * r,
             sy = y + Math.sin(a) * r;
-          const c = pick([c1, c2, c3, C.white]);
+          const c = pick([c1, c2, c3, C.gold]);
           pending.push({
             at: rand(0.45, 1.1),
             fn: () => {
@@ -807,9 +808,6 @@ export function createFireworks(canvas, { onBurst, avoid = {} } = {}) {
       p.age += dt;
       const fr = p.age / p.life;
       if (fr >= 1) {
-        if (p.crackle) {
-          for (let k = 0; k < 2; k++) add(p.x + rand(-4, 4), p.y + rand(-4, 4), 0, 0, { k: POP, life: rand(0.08, 0.16), c: C.white, drag: 1, g: 0 });
-        }
         ps.splice(i, 1);
         continue;
       }
@@ -847,6 +845,10 @@ export function createFireworks(canvas, { onBurst, avoid = {} } = {}) {
       if (p.ember && p.age < 0.07) a *= p.age / 0.07;
       if (p.strobe && fr > 0.4) a *= Math.random() < 0.45 ? 1 : 0.12;
       if (p.k === GLITTER || p.k === POP) a *= Math.random() < 0.6 ? 1 : 0.2;
+      if (p.amp !== undefined) a *= p.amp;
+      // 錦的噼啪：余烬阶段零星地冒出小小的金色火花，亮度跟着本体走
+      // （以前是烧完那一刻每颗星同时爆两个纯白点 → 本体已经很暗，突然整团白点闪一下）
+      if (p.crackle && fr > EMBER_AT && Math.random() < 0.025 * f) add(p.x + rand(-3, 3), p.y + rand(-3, 3), 0, 0.2, { k: POP, life: rand(0.1, 0.18), c: C.gold, drag: 1, g: 0, amp: Math.min(1, a * 1.6), thin: true });
       // 颜色：刚炸开时偏白热，之后变成本色，到点再变色
       let c = fr > p.swap && p.c2 >= 0 ? p.c2 : p.c;
       if (!p.kata && p.age > 0.05 && p.age < 0.1 && (p.k === STAR || p.k === DOT)) c = C.white;
@@ -944,6 +946,7 @@ export function createFireworks(canvas, { onBurst, avoid = {} } = {}) {
         ys = k.map((p) => p.y + cr.top);
       return { n: k.length, left: Math.min(...xs), right: Math.max(...xs), top: Math.min(...ys), bottom: Math.max(...ys) };
     },
+    _pops: () => ({ pops: ps.filter((p) => p.k === POP).length, white: ps.filter((p) => p.k === POP && p.c === C.white).length }),
     _advance(sec) {
       for (let k = 0; k < sec * 60; k++) tick(1 / 60);
     },

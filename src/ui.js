@@ -60,9 +60,23 @@ export function fitMasthead() {
   fit();
   document.fonts.ready.then(fit);
   addEventListener('resize', fit);
-  // 竖屏时让电线杆留在画面里
+  // 竖屏（手机 / 平板）：按屏幕比例算出取景窗口，让大电线杆停在右侧约 88% 处，
+  // 不会像以前那样跑到正中间或最左边、挡住标题和目录
   const pole = $('.pole-scene');
-  const ar = () => pole && pole.setAttribute('preserveAspectRatio', innerWidth / innerHeight < 1 ? 'xMaxYMax slice' : 'xMidYMax slice');
+  const ar = () => {
+    if (!pole) return;
+    const W = innerWidth,
+      H = pole.clientHeight || innerHeight;
+    if (W / H < 1) {
+      const k = H / 1000; // 竖屏时按高度铺满
+      const x0 = Math.round(1210 - (0.88 * W) / k);
+      pole.setAttribute('viewBox', `${x0} 0 1600 1000`);
+      pole.setAttribute('preserveAspectRatio', 'xMinYMax slice');
+    } else {
+      pole.setAttribute('viewBox', '0 0 1600 1000');
+      pole.setAttribute('preserveAspectRatio', 'xMidYMax slice');
+    }
+  };
   ar();
   addEventListener('resize', ar);
   return fit;
@@ -349,12 +363,14 @@ export function initNav({ audioOn }) {
   function closeToc() {
     toc.hidden = true;
     btn.setAttribute('aria-expanded', 'false');
+    btn.textContent = '目次';
     lenis && lenis.start();
   }
   btn.addEventListener('click', () => {
     const open = toc.hidden;
     toc.hidden = !open;
     btn.setAttribute('aria-expanded', String(open));
+    btn.textContent = open ? '閉じる' : '目次';
     if (open) {
       lenis && lenis.stop();
       gsap.from('#mobile-toc a', { x: -30, opacity: 0, stagger: 0.04, duration: 0.4 });
