@@ -1512,3 +1512,8 @@ html.has-cursor #cursor {
     font-size: 18px;
   }
 }
+
+/* 懒加载图片：还没加载完时先隐藏，加载完由 JS 淡入 */
+img.img-wait {
+  opacity: 0;
+}

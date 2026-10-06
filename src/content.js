@@ -59,7 +59,7 @@ export const site = {
     ],
     profile: [
       // ← 角色档案
-      { k: '誕生日', en: 'BIRTHDAY', v: '6月31日' },
+      { k: '誕生日', en: 'BIRTHDAY', v: '6月21日' },
       { k: '星座', en: 'ZODIAC', v: '双子座' },
       { k: '職業', en: 'CLASS', v: '開発者 / 絵描き' },
       { k: '好物', en: 'FAVORITE', v: 'ラムネ・夕焼け' },

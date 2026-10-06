@@ -129,9 +129,33 @@ export function coverIntro() {
   return tl;
 }
 
+/* ---------------- 懒加载图片：加载完再淡入，不会「啪」地一下冒出来 ---------------- */
+const loaded = (img) => img.complete && img.naturalWidth > 0;
+export function fadeOnLoad(img) {
+  if (!img || loaded(img)) return;
+  img.classList.add('img-wait');
+  img.addEventListener(
+    'load',
+    () => {
+      img.classList.remove('img-wait');
+      img.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 700, easing: 'ease-out' });
+    },
+    { once: true },
+  );
+  img.addEventListener('error', () => img.classList.remove('img-wait'), { once: true });
+}
+// 等图片下载并解码（最多 ms 毫秒）
+const imagesReady = (imgs, ms = 2500) =>
+  Promise.race([Promise.all(imgs.map((i) => (loaded(i) && i.decode ? i.decode().catch(() => {}) : new Promise((r) => (i.addEventListener('load', r, { once: true }), i.addEventListener('error', r, { once: true })))))), new Promise((r) => setTimeout(r, ms))]);
+
 /* ---------------- Section animations ---------------- */
 export function initAnimations({ sky }) {
   const mm = gsap.matchMedia();
+
+  // 自我介绍的图（立绘、头像）马上开始下载：滑到那里时已经准备好，能跟着格子一起渐入
+  $$('.about-page img').forEach((img) => (img.loading = 'eager'));
+  // 其他懒加载的图：加载完淡入
+  $$('.work-img, .pad-cover img, .ac-icon').forEach(fadeOnLoad);
 
   // ---- 表紙 scroll
   ScrollTrigger.create({
@@ -180,9 +204,24 @@ export function initAnimations({ sky }) {
 
   // ---- コマ
   $$('.panel').forEach((panel, i) => {
-    const tl = gsap.timeline({ scrollTrigger: { trigger: panel, start: 'top 85%' } });
+    // 格子里有图的话，等图下载解码好再播（手机网速慢时，图不会在渐入结束后才突然冒出来）
+    const tl = gsap.timeline({ paused: true });
+    const imgs = $$('img', panel);
+    ScrollTrigger.create({
+      trigger: panel,
+      start: 'top 85%',
+      once: true,
+      onEnter: () =>
+        imagesReady(imgs).then(() => {
+          imgs.forEach(fadeOnLoad); // 超时还没好的，之后自己淡入
+          tl.play();
+        }),
+    });
     tl.fromTo($('.panel-border polygon', panel), { strokeDashoffset: 1 }, { strokeDashoffset: 0, duration: 0.9, ease: 'power2.inOut' }, 0)
       .from($('.panel-inner', panel), { opacity: 0, scale: 1.08, duration: 0.9, ease: 'power3.out' }, 0.15);
+    // 立绘：从左边滑进来，单独渐入
+    const chara = $('.scene-chara', panel);
+    if (chara) tl.from(chara, { xPercent: -14, opacity: 0, duration: 1.1, ease: 'power3.out', clearProps: CLEAR }, 0.3);
     const bubble = $('.speech', panel);
     if (bubble) tl.from(bubble, { scale: 0, transformOrigin: '80% 90%', duration: 0.8, ease: 'elastic.out(1, 0.55)' }, 0.6);
     const narr = $('.narration', panel);
