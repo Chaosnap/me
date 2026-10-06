@@ -1430,3 +1430,11 @@ html.has-cursor #cursor {
 .okuzuke {
   background: color-mix(in srgb, var(--paper) 86%, transparent);
 }
+
+/* 作品弹窗：内容还是可以滚动，但不显示右侧的滚动条 */
+.modal-sheet {
+  scrollbar-width: none;
+}
+.modal-sheet::-webkit-scrollbar {
+  display: none;
+}

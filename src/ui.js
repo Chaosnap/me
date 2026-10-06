@@ -446,7 +446,7 @@ export function initSoundUI({ bgm, layers, spawnFromBottom }) {
   );
 }
 
-/* ---------- 作品详情（票根）：前一张往左下、后一张往右下沿弧线转走 ---------- */
+/* ---------- 作品详情（票根）：「前」往右下、「次」往左下沿弧线转走 ---------- */
 export function initModal() {
   const modal = $('#modal');
   const sheet = $('.modal-sheet', modal);
@@ -474,11 +474,11 @@ export function initModal() {
     $('.modal-close', sheet).focus();
   };
 
-  /** dir = -1：前一张（当前票根往左下转走）；dir = 1：后一张（往右下转走） */
+  /** dir = -1：前一张（当前票根往右下转走）；dir = 1：后一张（往左下转走） */
   const swap = (dir) => {
     if (busy || modal.hidden) return;
     busy = true;
-    const out = 16 * dir;
+    const out = -16 * dir; // 「前」往右下转走（新的一张从左下转进来）；「次」往左下
     // 注意：时间线里的 fromTo 默认 immediateRender，会在创建时就把票根设成透明 → 退场动画看不见
     gsap
       .timeline({ onComplete: () => (busy = false) })

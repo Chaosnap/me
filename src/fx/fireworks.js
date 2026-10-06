@@ -285,7 +285,7 @@ const SHAPE_CFG = {
   furin: { w: 0.1, rot: 0.08, flip: false, colors: [['cyan', 'red', 'pink'], ['silver', 'red', 'gold']] },
   sakura: { w: 0.12, rot: 0.6, flip: false, colors: [['pink', 'white', 'gold'], ['pink', 'red', 'yellow'], ['white', 'pink', 'gold']] },
   heart: { w: 0.08, rot: 0.22, flip: false, colors: [['pink', 'red', 'gold'], ['red', 'pink', 'white']] },
-  yuki: { w: 0.1, rot: 0.08, flip: false, colors: [['gold', 'pink', 'white'], ['pink', 'cyan', 'gold'], ['cyan', 'violet', 'white']] },
+  yuki: { w: 0.1, rot: 0.06, flip: false, steady: true, squash: 0.96, dens: 1.6, bold: true, colors: [['gold', 'pink', 'white'], ['pink', 'cyan', 'gold'], ['cyan', 'violet', 'white']] },
   koinobori: { w: 0.1, rot: 0.1, flip: true, spark: 4, colors: [['blue', 'red', 'cyan', 'gold', 'white'], ['violet', 'red', 'pink', 'gold', 'white']] },
 };
 const pickShape = () => {
@@ -330,7 +330,37 @@ const STAR = 0,
   ROCKET = 5,
   POP = 6;
 
-export function createFireworks(canvas, { onBurst } = {}) {
+// 图案的外框（单位坐标；考虑旋转，左右按可翻转取对称）
+const boxCache = {};
+function shapeBox(name) {
+  if (boxCache[name]) return boxCache[name];
+  let x0 = Infinity,
+    x1 = -Infinity,
+    y0 = Infinity,
+    y1 = -Infinity;
+  for (const [, pts] of SHAPES[name]())
+    for (const [x, y] of pts) {
+      x0 = Math.min(x0, x);
+      x1 = Math.max(x1, x);
+      y0 = Math.min(y0, y);
+      y1 = Math.max(y1, y);
+    }
+  const rot = SHAPE_CFG[name].rot;
+  let hw = 0,
+    top = 0,
+    bot = 0;
+  for (const r of [-rot, rot])
+    for (const [x, y] of [[x0, y0], [x1, y0], [x0, y1], [x1, y1]]) {
+      const rx = x * Math.cos(r) - y * Math.sin(r),
+        ry = x * Math.sin(r) + y * Math.cos(r);
+      hw = Math.max(hw, Math.abs(rx));
+      top = Math.max(top, -ry);
+      bot = Math.max(bot, ry);
+    }
+  return (boxCache[name] = { hw, top, bot });
+}
+
+export function createFireworks(canvas, { onBurst, avoid = {} } = {}) {
   const ctx = canvas.getContext('2d');
   const isNight = () => document.documentElement.dataset.theme === 'night';
   let W = 0,
@@ -373,7 +403,9 @@ export function createFireworks(canvas, { onBurst } = {}) {
       g.addColorStop(1, `rgba(${col},0)`);
     } else {
       const [r, gg, b] = RGB[th][NAMES[c]];
-      g.addColorStop(0, th === 'night' ? 'rgba(255,255,255,0.9)' : `rgba(${r},${gg},${b},0.5)`);
+      // 中心用本色提亮（不是纯白）：叠加时不会糊成一团白
+      const lt = (v) => Math.round(v + (255 - v) * 0.45);
+      g.addColorStop(0, th === 'night' ? `rgba(${lt(r)},${lt(gg)},${lt(b)},0.7)` : `rgba(${r},${gg},${b},0.45)`);
       g.addColorStop(0.18, `rgba(${r},${gg},${b},0.55)`);
       g.addColorStop(0.5, `rgba(${r},${gg},${b},0.16)`);
       g.addColorStop(1, `rgba(${r},${gg},${b},0)`);
@@ -393,7 +425,7 @@ export function createFireworks(canvas, { onBurst } = {}) {
   const EMBER = 1.6; // 寿命加长的倍数
   const EMBER_AT = 0.55; // 余烬阶段从寿命的哪里开始
   function add(x, y, vx, vy, o) {
-    if (ps.length > cap * 1.15) return null;
+    if (!o.force && ps.length > cap * 1.15) return null; // 图案花火不受上限影响，保证完整
     const k = o.k ?? STAR;
     const long = k === STAR || k === DOT || k === WILLOW;
     const p = {
@@ -420,6 +452,7 @@ export function createFireworks(canvas, { onBurst } = {}) {
       hn: 0,
       ht: 0,
       shell: o.shell || null,
+      kata: o.kata || false,
     };
     if (p.k === WILLOW) {
       p.hx = new Float32Array(9);
@@ -525,17 +558,17 @@ export function createFireworks(canvas, { onBurst } = {}) {
         const v = R * 0.95 * (1 - d);
         const rot = rand(-cfg.rot, cfg.rot);
         // 一点立体感（像略微侧着看），不压得太扁，细节才看得清
-        const squash = rand(0.86, 1) * (cfg.flip && Math.random() < 0.5 ? -1 : 1);
+        const squash = rand(cfg.squash ?? 0.86, 1) * (cfg.flip && Math.random() < 0.5 ? -1 : 1);
         const cr = Math.cos(rot),
           sr = Math.sin(rot);
-        for (const [role, px, py] of sample(SHAPES[name](), n(380))) {
+        for (const [role, px, py] of sample(SHAPES[name](), n(380 * (cfg.dens ?? 1)))) {
           const ux = px * squash,
             uy = py;
           const vx = (ux * cr - uy * sr) * v,
             vy = (ux * sr + uy * cr) * v;
-          add(x, y, vx, vy, { life: rand(2.1, 2.5), c: cols[role], c2: role === 0 && Math.random() < 0.25 ? C.white : -1, swap: 0.82, drag: d, g: 0.009, trail: 1.1, thin: true, strobe: role === (cfg.spark ?? 2) && Math.random() < 0.5 });
+          add(x, y, vx, vy, { life: rand(2.1, 2.5), c: cols[role], c2: role === 0 && Math.random() < 0.25 ? C.white : -1, swap: 0.82, drag: d, g: 0.009, trail: 1.1, thin: !cfg.bold, strobe: !cfg.steady && role === (cfg.spark ?? 2) && Math.random() < 0.5, force: true, kata: true });
         }
-        flash(x, y, R * 0.8, cols[0], 0.35);
+        flash(x, y, R * 0.5, cols[0], 0.35);
         smoke(x, y, R * 0.8);
         onBurst && onBurst(sh.size * 0.9, false);
         return;
@@ -551,23 +584,87 @@ export function createFireworks(canvas, { onBurst } = {}) {
     onBurst && onBurst(sh.size, sh.type === 'nishiki' || sh.type === 'senrin');
   }
 
+  /* 图案花火的落点：整个图案（完全展开 + 下垂余量）都要在看得见的范围里，
+   * 不能压到奥付表格 / 胶卷（hard），尽量少压标题文字（soft）；放不下就缩小一点 */
+  function place(sh) {
+    const b = shapeBox(sh.shape);
+    const cr = canvas.getBoundingClientRect();
+    const vt = Math.max(0, -cr.top) + 12,
+      vb = Math.min(H, innerHeight - cr.top) - 12;
+    const rects = (fn, pad) =>
+      (fn ? fn() : [])
+        .filter(Boolean)
+        .map((el) => {
+          const r = el.getBoundingClientRect();
+          return r.width ? [r.left - cr.left - pad, r.top - cr.top - pad, r.right - cr.left + pad, r.bottom - cr.top + pad] : null;
+        })
+        .filter(Boolean);
+    // 正在天上的其他图案也要避开，不会叠在一起
+    for (let i = taken.length - 1; i >= 0; i--) if (taken[i].until < clock) taken.splice(i, 1);
+    const hard = rects(avoid.hard, 14).concat(taken.map((t) => t.box)),
+      soft = rects(avoid.soft, 6);
+    const ov = (a, r) => Math.max(0, Math.min(a[2], r[2]) - Math.max(a[0], r[0])) * Math.max(0, Math.min(a[3], r[3]) - Math.max(a[1], r[1]));
+    let best = null;
+    for (let size = sh.size; size >= 0.4; size *= 0.88) {
+      const E = base * size * 0.95;
+      const hw = b.hw * E + 16,
+        up = b.top * E + 10,
+        down = b.bot * E + 50;
+      const x0 = hw,
+        x1 = W - hw,
+        y0 = vt + up,
+        y1 = Math.min(vb - down, vt + (vb - vt) * 0.75);
+      if (x1 <= x0 || y1 <= y0) continue;
+      for (let i = 0; i < 24; i++) {
+        const x = rand(x0, x1),
+          y = rand(y0, y1);
+        const box = [x - hw, y - up, x + hw, y + down];
+        const area = (box[2] - box[0]) * (box[3] - box[1]);
+        let h = 0,
+          so = 0;
+        for (const r of hard) h += ov(box, r);
+        for (const r of soft) so += ov(box, r);
+        const score = h * 10 + so;
+        if (h === 0 && so < area * 0.12) return reserve({ x, y, size, box });
+        if (!best || score < best.score) best = { x, y, size, box, score };
+      }
+    }
+    return best && reserve(best);
+  }
+  const taken = [];
+  const reserve = (p) => {
+    taken.push({ box: p.box, until: clock + 4.2 });
+    return p;
+  };
+
   function launch(sh) {
-    const x = W * sh.x;
-    const ty = H * sh.y;
+    let x = W * sh.x;
+    let ty = H * sh.y;
+    const kata = sh.type === 'kata';
+    if (kata) {
+      sh.shape = sh.shape || pickShape();
+      const p = place(sh);
+      if (p) {
+        x = p.x;
+        ty = p.y;
+        sh.size = p.size;
+      }
+    }
     const g = 0.12;
     const v = Math.sqrt(2 * g * Math.max(60, H + 10 - ty));
-    const r = add(x, H + 10, rand(-0.4, 0.4), -v, { k: ROCKET, life: 9, c: C.gold, drag: 1, g, trail: 4, thin: true, shell: sh });
-    if (r) r.wob = rand(0, TAU);
+    // 图案花火的火箭笔直上升，正好在算好的位置炸开
+    const r = add(x, H + 10, kata ? 0 : rand(-0.4, 0.4), -v, { k: ROCKET, life: 9, c: C.gold, drag: 1, g, trail: 4, thin: true, shell: sh, force: kata });
+    if (r) r.wob = kata ? 0 : rand(0, TAU);
   }
 
   const TYPES = [
-    ['kiku', 0.3],
-    ['botan', 0.17],
-    ['kamuro', 0.15],
-    ['senrin', 0.11],
+    ['kiku', 0.26],
+    ['botan', 0.15],
+    ['kamuro', 0.13],
+    ['senrin', 0.1],
     ['ring', 0.03],
-    ['nishiki', 0.13],
-    ['kata', 0.07],
+    ['nishiki', 0.11],
+    ['kata', 0.22],
   ];
   const randType = () => {
     let r = Math.random();
@@ -608,7 +705,7 @@ export function createFireworks(canvas, { onBurst } = {}) {
       nextAt = end + 2.6;
       return;
     }
-    if (Math.random() < 0.04) {
+    if (Math.random() < 0.07) {
       // 偶尔三只水母并排
       const shape = 'jelly';
       [0.24, 0.5, 0.76].forEach((x, i) => queue.push({ at: clock + i * 0.18, sh: shell({ type: 'kata', shape, x: x + rand(-0.04, 0.04), y: rand(0.16, 0.36), size: rand(0.7, 0.9) }) }));
@@ -693,12 +790,13 @@ export function createFireworks(canvas, { onBurst } = {}) {
         continue;
       }
       const k = 1 - fl.age / fl.life;
+      const attack = Math.min(1, fl.age / 0.05); // 50ms 淡入，不是一下子蹦出来
       const sp = sprite(th, fl.c, 'flash');
-      ctx.globalAlpha = (night ? 0.75 : 0.3) * k * k;
+      ctx.globalAlpha = (night ? 0.5 : 0.26) * k * k * attack;
       ctx.drawImage(sp, fl.x - fl.r, fl.y - fl.r, fl.r * 2, fl.r * 2);
       if (night) {
         const R = fl.r * 3.2;
-        ctx.globalAlpha = 0.14 * k;
+        ctx.globalAlpha = 0.07 * k * attack;
         ctx.drawImage(sp, fl.x - R, fl.y - R, R * 2, R * 2);
       }
     }
@@ -716,11 +814,11 @@ export function createFireworks(canvas, { onBurst } = {}) {
         continue;
       }
       const dr = p.drag === 1 ? 1 : Math.pow(p.drag, f);
-      p.vx = p.vx * dr + 0.004 * f; // 一点点风
+      p.vx = p.vx * dr + (p.k === ROCKET ? 0 : 0.004 * f); // 一点点风（火箭不受影响）
       p.vy = p.vy * dr + p.g * f;
       if (p.k === ROCKET) {
         p.wob += dt * 14;
-        p.x += (p.vx + Math.sin(p.wob) * 0.25) * f;
+        p.x += (p.vx + (p.shell.type === 'kata' ? 0 : Math.sin(p.wob) * 0.25)) * f;
         p.y += p.vy * f;
         // 拖着一串金色小火花往上爬
         if (Math.random() < 0.8 * f) add(p.x, p.y + 4, rand(-0.5, 0.5), rand(0.3, 1.2), { k: SPARK, life: rand(0.3, 0.6), c: C.gold, drag: 0.93, g: 0.02, trail: 1.5, thin: true });
@@ -745,11 +843,13 @@ export function createFireworks(canvas, { onBurst } = {}) {
         a = 0.64 * Math.pow(1 - k, 1.15) * (0.6 + 0.4 * Math.random());
         p.vx += Math.sin(p.age * 2.2 + p.sw) * 0.008 * f; // 左右飘
       }
+      // 刚炸开时几百颗星挤在同一点，叠加起来会过曝成一团白（「鬼影」）→ 头 70ms 淡入
+      if (p.ember && p.age < 0.07) a *= p.age / 0.07;
       if (p.strobe && fr > 0.4) a *= Math.random() < 0.45 ? 1 : 0.12;
       if (p.k === GLITTER || p.k === POP) a *= Math.random() < 0.6 ? 1 : 0.2;
       // 颜色：刚炸开时偏白热，之后变成本色，到点再变色
       let c = fr > p.swap && p.c2 >= 0 ? p.c2 : p.c;
-      if (fr < 0.045 && p.k !== WILLOW && p.k !== SPARK) c = C.white;
+      if (!p.kata && p.age > 0.05 && p.age < 0.1 && (p.k === STAR || p.k === DOT)) c = C.white;
 
       if (p.k === WILLOW) {
         // 冠菊：记下走过的路，拖出长长的下垂尾巴，并且一路掉闪粉
@@ -835,6 +935,14 @@ export function createFireworks(canvas, { onBurst } = {}) {
     _fire(o) {
       queue.push({ at: clock, sh: shell(o) });
       start();
+    },
+    _kataBox() {
+      const k = ps.filter((p) => p.kata);
+      if (!k.length) return null;
+      const cr = canvas.getBoundingClientRect();
+      const xs = k.map((p) => p.x),
+        ys = k.map((p) => p.y + cr.top);
+      return { n: k.length, left: Math.min(...xs), right: Math.max(...xs), top: Math.min(...ys), bottom: Math.max(...ys) };
     },
     _advance(sec) {
       for (let k = 0; k < sec * 60; k++) tick(1 / 60);

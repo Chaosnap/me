@@ -82,7 +82,12 @@ initScramble();
 // 奥付：滑到底时放夏祭り花火（离开就不再发射，已经炸开的放完为止）
 const colophon = document.getElementById('colophon');
 if (!reduceMotion && colophon) {
-  const hanabi = createFireworks(colophon.querySelector('.hanabi'), { onBurst: (size, crackle) => audioOn() && firework(size, crackle) });
+  const $c = (sel) => document.querySelector(sel);
+  const hanabi = createFireworks(colophon.querySelector('.hanabi'), {
+    onBurst: (size, crackle) => audioOn() && firework(size, crackle),
+    // 图案花火避开：奥付表格、胶卷（完全不压）；标题、页脚（尽量不压）
+    avoid: { hard: () => [$c('.okuzuke'), $c('#filmnav'), $c('.fn-lens')], soft: () => [$c('.signoff'), $c('.colophon-foot')] },
+  });
   if (import.meta.env.DEV) window.__hanabi = hanabi;
   new IntersectionObserver(([e]) => (e.isIntersecting ? hanabi.play() : hanabi.stop()), { threshold: 0.35 }).observe(colophon);
 }
