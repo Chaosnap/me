@@ -673,10 +673,7 @@ html.has-cursor #cursor {
   z-index: 6;
   pointer-events: none;
   opacity: 0.6;
-  mix-blend-mode: multiply;
-}
-:root[data-theme='night'] .cover-scratch {
-  mix-blend-mode: screen;
+  /* 划痕本身白天画深色、夜里画白色，用普通叠加就等同于原来的 multiply / screen，且昼夜切换时不改混合模式 */
 }
 .cover-vhs {
   position: absolute;
