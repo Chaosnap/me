@@ -64,7 +64,7 @@ function door({ no, ja, en, lead, dark = false, hashira, seed = 1 }) {
 }
 
 /* 共通：章末アオリ */
-const aori = (text, target) => `<a class="aori" href="#${target}" data-goto="${target}" data-cursor="次へ"><span lang="ja">${esc(text)}</span><b>▶</b></a>`;
+const aori = (text, target) => `<a class="aori" href="#${target}" data-goto="${target}" data-cursor="次へ"><span lang="ja">${esc(text)}</span><b><i class="tri" aria-hidden="true"></i></b></a>`;
 
 /* 胶片边缘的文字 */
 const filmEdge = (n = 14) =>
@@ -345,9 +345,9 @@ function story() {
               <strong class="ss-name">${esc(st.station)}</strong>
               <span class="ss-romaji">${esc(st.romaji)}</span>
               <span class="ss-bar">
-                <span class="ss-prev">${i > 0 ? `◀ ${esc(s[i - 1].station)}` : ''}</span>
+                <span class="ss-prev">${i > 0 ? `<i class="tri l" aria-hidden="true"></i> ${esc(s[i - 1].station)}` : ''}</span>
                 <span class="ss-year">${flaps(st.year)}</span>
-                <span class="ss-next">${i < s.length - 1 ? `${esc(s[i + 1].station)} ▶` : ''}</span>
+                <span class="ss-next">${i < s.length - 1 ? `${esc(s[i + 1].station)} <i class="tri" aria-hidden="true"></i>` : ''}</span>
               </span>
               <span class="ss-arrive">到着</span>
             </div>

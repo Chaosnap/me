@@ -1591,3 +1591,21 @@ img.img-wait {
     display: none;
   }
 }
+
+/* 三角箭头：用 CSS 画，不用「▶ ◀」字符 —— iPad / iPhone 会把这两个字符显示成彩色的播放 emoji */
+.tri {
+  display: inline-block;
+  /* 尺寸按原来「▶」字形的实际墨迹量出来：宽 0.66em、高 0.94em、底部略低于基线 */
+  width: 0.66em;
+  height: 0.94em;
+  background: currentColor;
+  clip-path: polygon(0 0, 100% 50%, 0 100%);
+  vertical-align: -0.09em;
+}
+.tri.l {
+  clip-path: polygon(100% 0, 0 50%, 100% 100%);
+}
+.aori b {
+  display: inline-flex;
+  align-items: center;
+}
