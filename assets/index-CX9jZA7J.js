@@ -145,7 +145,7 @@ const __vite__mapDeps=(i,m=__vite__mapDeps,d=(m.f||(m.f=["./fonts-Cp2QKbO4.css"]
     </div>
     <div class="marquee" aria-hidden="true"><div class="marquee-track"><span>${c.repeat(8)}</span><span>${c.repeat(8)}</span></div></div>
     ${o?`<p class="hashira" lang="ja">${b(o)}</p>`:``}
-  </header>`}var O=(e,t)=>`<a class="aori" href="#${t}" data-goto="${t}" data-cursor="次へ"><span lang="ja">${b(e)}</span><b>▶</b></a>`,k=(e=14)=>Array.from({length:e},(e,t)=>`<span>▸ ${S(t+1)}${t%2?`A`:``}</span><span>YUKI FILM 400</span>`).join(``);function A(){let{name:t,magazine:n}=e,r=T();return`
+  </header>`}var O=(e,t)=>`<a class="aori" href="#${t}" data-goto="${t}" data-cursor="次へ"><span lang="ja">${b(e)}</span><b><i class="tri" aria-hidden="true"></i></b></a>`,k=(e=14)=>Array.from({length:e},(e,t)=>`<span>▸ ${S(t+1)}${t%2?`A`:``}</span><span>YUKI FILM 400</span>`).join(``);function A(){let{name:t,magazine:n}=e,r=T();return`
   <section id="cover" class="cover" data-chapter="cover">
     <canvas class="sky" aria-hidden="true"></canvas>
     <div class="cover-tone" aria-hidden="true"></div>
@@ -359,9 +359,9 @@ const __vite__mapDeps=(i,m=__vite__mapDeps,d=(m.f||(m.f=["./fonts-Cp2QKbO4.css"]
               <strong class="ss-name">${b(e.station)}</strong>
               <span class="ss-romaji">${b(e.romaji)}</span>
               <span class="ss-bar">
-                <span class="ss-prev">${r>0?`◀ ${b(t[r-1].station)}`:``}</span>
+                <span class="ss-prev">${r>0?`<i class="tri l" aria-hidden="true"></i> ${b(t[r-1].station)}`:``}</span>
                 <span class="ss-year">${n(e.year)}</span>
-                <span class="ss-next">${r<t.length-1?`${b(t[r+1].station)} ▶`:``}</span>
+                <span class="ss-next">${r<t.length-1?`${b(t[r+1].station)} <i class="tri" aria-hidden="true"></i>`:``}</span>
               </span>
               <span class="ss-arrive">到着</span>
             </div>
