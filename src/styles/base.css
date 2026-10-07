@@ -265,8 +265,9 @@ ul {
   80% { transform: translate(9%, -3%); }
   90% { transform: translate(-1%, -6%); }
 }
-/* 漏光：白天一套（soft-light）、夜里一套（screen），混合模式各自固定不变，昼夜之间只切透明度。
- * 不用的那一套留一点点透明度（不是 0），图层一直在，切换时不需要重建 → 不会出现半新半旧的大块色差 */
+/* 漏光：白天一套（soft-light）、夜里一套（screen），混合模式各自固定不变（切换昼夜时改正在画的图层的混合模式会出「鬼影」）。
+ * 不用的那一套 visibility: hidden —— 完全不画，GPU 只合成 3 层（之前留 0.004 透明度，等于每帧多混合 3 个大图层，手机会卡）。
+ * 隐藏时 CSS 动画照常在跑，两套位置始终同步 */
 .leaks i {
   --od: 0.55; /* 白天的强度 */
   --on: 0.22; /* 夜里的强度 */
@@ -279,10 +280,11 @@ ul {
 }
 .leaks i.n {
   mix-blend-mode: screen;
-  --o: 0.004;
+  --o: var(--on);
+  visibility: hidden;
 }
-:root[data-theme='night'] .leaks i { --o: 0.004; }
-:root[data-theme='night'] .leaks i.n { --o: var(--on); }
+:root[data-theme='night'] .leaks i { visibility: hidden; }
+:root[data-theme='night'] .leaks i.n { visibility: visible; }
 /* 三团漏光各走各的路线（多点游走 + 缩放），再叠一层明暗呼吸；周期互不整除，不会一眼看出循环 */
 .lk1 { width: 70vmax; height: 70vmax; left: -30vmax; top: -25vmax; background: radial-gradient(circle, var(--sunset), transparent 62%); animation: leakA 17s ease-in-out infinite, leakPulse 7.3s ease-in-out infinite; }
 .lk2 { --od: 0.42; --on: 0.2; width: 60vmax; height: 60vmax; right: -28vmax; bottom: -30vmax; background: radial-gradient(circle, var(--magenta), transparent 62%); animation: leakB 13s ease-in-out infinite, leakPulse 5.9s ease-in-out -2s infinite; }
