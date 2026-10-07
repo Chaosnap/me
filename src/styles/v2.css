@@ -1539,3 +1539,58 @@ img.img-wait {
     max-height: calc(100svh - var(--gutter) * 2);
   }
 }
+
+/* ============ 胶卷开关 ============ */
+.film-btn {
+  gap: 7px;
+  font-family: var(--f-mono);
+}
+/* 小胶卷图标：三格 + 两侧齿孔 */
+.fb-icon {
+  display: inline-flex;
+  flex-direction: column;
+  gap: 1.5px;
+  width: 9px;
+  padding: 1.5px 0;
+  border-left: 1.5px dotted currentColor;
+  border-right: 1.5px dotted currentColor;
+}
+.fb-icon i {
+  display: block;
+  height: 2.5px;
+  margin: 0 1.5px;
+  background: currentColor;
+}
+.film-btn[aria-pressed='false'] .fb-icon,
+.film-btn[aria-pressed='false'] .fb-label {
+  opacity: 0.35;
+}
+.film-btn[aria-pressed='false'] .fb-label {
+  text-decoration: line-through;
+}
+/* 隐藏时：胶卷连同片门滑出右边 */
+.filmnav,
+.fn-lens {
+  transition: right 0.6s var(--ease-out), visibility 0s;
+}
+:root[data-film='off'] .filmnav,
+:root[data-film='off'] .fn-lens {
+  right: calc(var(--frame) - 160px);
+  visibility: hidden;
+  pointer-events: none;
+  transition: right 0.6s var(--ease-out), visibility 0s 0.6s;
+}
+:root[data-film='off'] .fn-caption {
+  visibility: hidden;
+}
+@media (max-width: 900px) {
+  .film-btn {
+    display: none;
+  }
+}
+/* 平板横屏 / 小屏电脑：顶栏多了一个按钮，把音乐按钮里的歌名收起来，别挤到中间的章节名 */
+@media (min-width: 901px) and (max-width: 1100px) {
+  .bgm-title {
+    display: none;
+  }
+}

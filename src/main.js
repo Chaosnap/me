@@ -21,6 +21,7 @@ import {
   initCursor,
   initClickJelly,
   initFilmNav,
+  initFilmToggle,
   initNav,
   initTheme,
   initSoundUI,
@@ -73,6 +74,7 @@ initClickJelly({ jelly, audioOn });
 initSoundUI({ bgm, layers: [jelly, coverJelly, swarm], spawnFromBottom });
 initTheme({ sky });
 initFilmNav();
+initFilmToggle();
 initNav({ audioOn });
 initModal();
 initPostcard(site.contact.email);

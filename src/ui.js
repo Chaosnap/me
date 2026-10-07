@@ -97,7 +97,7 @@ export function initClock() {
 }
 
 /* ---------- 光标：肥皂泡（悬停时变成珍珠 + 外圈旋转文字） ---------- */
-const CURSOR_EN = { 見る: 'VIEW', 読む: 'READ', 開く: 'OPEN', 次へ: 'NEXT', 前へ: 'PREV', 閉じる: 'CLOSE', 鳴らす: 'PLAY', 投函: 'POST', 戻る: 'BACK', 切替: 'DAY / NIGHT', '♪': 'MUSIC', GO: 'LINK', '✉': 'MAIL' };
+const CURSOR_EN = { 見る: 'VIEW', 読む: 'READ', 開く: 'OPEN', 次へ: 'NEXT', 前へ: 'PREV', 閉じる: 'CLOSE', 鳴らす: 'PLAY', 投函: 'POST', 戻る: 'BACK', 切替: 'DAY / NIGHT', フィルム: 'FILM STRIP', '♪': 'MUSIC', GO: 'LINK', '✉': 'MAIL' };
 export function initCursor({ jelly }) {
   if (!fine) return;
   document.documentElement.classList.add('has-cursor');
@@ -195,7 +195,7 @@ export function initFilmNav() {
   let hideTimer = 0;
   let hovering = false;
   const showCaption = () => {
-    if (innerWidth <= 900) return;
+    if (innerWidth <= 900 || document.documentElement.dataset.film === 'off') return;
     clearTimeout(hideTimer);
     if (!shown) {
       shown = true;
@@ -407,6 +407,29 @@ export function initTheme({ sky }) {
       );
     });
   });
+}
+
+/* ---------- 右侧胶卷：显示 / 隐藏（电脑和平板横屏） ---------- */
+export function initFilmToggle() {
+  const btn = $('#film-toggle');
+  if (!btn) return;
+  const root = document.documentElement;
+  const sync = () => {
+    const on = root.dataset.film !== 'off';
+    btn.setAttribute('aria-pressed', String(on));
+    btn.title = on ? '隐藏右侧胶卷' : '显示右侧胶卷';
+  };
+  // 每次打开页面都默认显示胶卷（不记住上次的选择），按钮只影响这一次浏览
+  delete root.dataset.film;
+  try {
+    localStorage.removeItem('yuki-film'); // 清掉旧版本存下的「关」
+  } catch (e) {}
+  btn.addEventListener('click', () => {
+    if (root.dataset.film === 'off') delete root.dataset.film;
+    else root.dataset.film = 'off';
+    sync();
+  });
+  sync();
 }
 
 /* ---------- 背景音乐 + 效果音 ---------- */
